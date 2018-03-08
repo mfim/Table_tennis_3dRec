@@ -9,7 +9,7 @@ MAX_ITERATIONS = 3;
 
 BALL_SIZE = 13; % pixels of the ball, CALIBRATE THE CAMERA, this comes automatically 
 BALL_AREA = pi * (BALL_SIZE/2)^2;
-SMALLESTACCEPTABLEAREA = BALL_SIZE*2; 
+BALL_PERIMETER = 2 * pi * (BALL_SIZE/2);
 RADIUSRANGE = [round(BALL_SIZE/2-0.3*BALL_SIZE/2), round(BALL_SIZE/2+0.3*BALL_SIZE/2)]; 
 ROI_WIDTH = BALL_SIZE * 8; %this can vary with the video FPS 
 ROI_HEIGHT = BALL_SIZE * 4;
@@ -84,7 +84,6 @@ while hasFrame(v)
         
         frame = readFrame(v);
         ball_found = 0;
-        roiRect = [0, 0, 0, 0];
         candidateRoiRect = [];
         candidateBallsRoi = [];
         
@@ -96,15 +95,17 @@ while hasFrame(v)
             if first_frame  == true
                 figure;
                 imshow(frame);
-                [pos(1), pos(2)] = getpts;
-                roiRect = calcRoiSize(pos, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
+                [positions(1), positions(2)] = getpts;
+                positions(3) = v.CurrentTime;
+                roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
+                frame = readFrame(v);
                 roi = imcrop(frame, roiRect);
                 first_frame = false;
                 
             else
-               % IMPLEMENT EXTRAPOLATION!!
-               ADAPTIVE_WIDTH = 1.4 * ADAPTIVE_WIDTH;
-               ADAPTIVE_HEIGHT = 1.4 * ADAPTIVE_HEIGHT;
+               % MAY BE IMPLEMENT linear EXTRAPOLATION!!
+               ADAPTIVE_WIDTH = 1.6 * ADAPTIVE_WIDTH;
+               ADAPTIVE_HEIGHT = 1.6 * ADAPTIVE_HEIGHT;
                % take care if not even the first ball was found 
                if isempty(positions)
                    roiRect = calcRoiSize(pos, [size(frame,2), size(frame,1)], ADAPTIVE_WIDTH, ADAPTIVE_HEIGHT);
@@ -119,8 +120,7 @@ while hasFrame(v)
         
         % --- FIRST PASS: COARSE THRESHOLD --- %
         [roiBinarized, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, first_threshold] = firstPass(roiBlurred, ballColor, h, ...
-            MAX_ITERATIONS, first_threshold, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA);
-        
+            MAX_ITERATIONS, first_threshold, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
        
         % --- CROP THE MULTIPLE ROI --- %
         [B, L] = bwboundaries(roiBinarized);
@@ -137,56 +137,38 @@ while hasFrame(v)
             candidateBallsRoi{1} = roiBlurred;
         end
         
-        
         % --- SECOND PASS: RELAXED THRESHOLD --- % 
         [candidateBallsRoiBin,  SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, second_threshold] = secondPass(candidateBallsRoi, ...
             ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
-            SMALLESTACCEPTABLEAREA, BALL_AREA);
-
+            BALL_AREA);
+        
+        posError = [0, 0, inf];
+        
         % --- FIND THE BALL! --- %
         for i = length(candidateBallsRoiBin)
             candidateRoiBin = candidateBallsRoiBin{i};
-
-            % first try to find circles 
-            % may be take this out, the ball is usually too small for this!
-            [circles, radii] = getBallWithHough(candidateRoiBin, candidateRoiRect(i,:), RADIUSRANGE);
-
-            if ~isempty(circles)
-                if length(circles(:, 1)) == 1
-                    ball_found = true;
-                    if candidateRoiRect ~= roiRect
-                        circles(1, 1) = circles(1,1) + roiRect(1);
-                        circles(1, 2) = circles(1,2) + roiRect(2);
-                    end
-                    ball_position = circles; % radii?
-                    %imshow(frame);
-                    %viscircles(circles, radii);
-                end
+            
+            % in case we're using a ROI inside the ROI
+            if candidateRoiRect ~= roiRect
+                candidateRoiRect(i, 1) = candidateRoiRect(i, 1) + roiRect(1);
+                candidateRoiRect(i, 2) = candidateRoiRect(i, 2) + roiRect(2);
             end
             
-            if ball_found == false 
-                % second try
-                posPositions = detectBallBoundaries(candidateRoiBin, candidateRoiRect(i,:));
-
-                if ~isempty(posPositions)
-                    if length(posPositions(:,1)) == 1
-                        ball_found = true;
-                        if candidateRoiRect ~= roiRect
-                            posPositions(1, 1) = posPositions(1,1) + roiRect(1);
-                            posPositions(1, 2) = posPositions(1,2) + roiRect(2);
-                        end
-                        ball_position = posPositions;
-                    end
-                end
+            nextTs = v.CurrentTime+1/v.FrameRate;
+            error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
+            
+            
+            if error < posError(3)
+                posError = error; 
             end
 
         end
-        % RIGHT NOW THIS WILL GET THE LAST BALL FOUND; 
-        % WILL BE CHANGED! 
-        if ball_found == true
-            positions = [positions ; ball_position];
+        
+        if posError(3) < inf 
+            ball_found = true;
+            positions = [positions ; posError(1), posError(2), v.CurrentTime];
         end
-       
+         
         frame_previous = frame;
         ball_found_prev = ball_found;        
     end
@@ -219,7 +201,8 @@ function roiRect = calcRoiSize(position, frame_size, ROI_WIDTH, ROI_HEIGHT)
     roiRect = [x_min, y_min, x_max - x_min, y_max - y_min ];    
 end
 
-function roiBinarized = thresholdImg(roiBlurred, BALL_COLOR_HSV_MIN, BALL_COLOR_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA)
+% still have to look the SMALLESTACCEPTABLEAREA issue 
+function roiBinarized = thresholdImg(roiBlurred, BALL_COLOR_HSV_MIN, BALL_COLOR_HSV_MAX, CLOSING_KERNEL_LENGTH)
 
     roi_hsv = rgb2hsv(roiBlurred);
 
@@ -261,69 +244,148 @@ function roiBinarized = thresholdImg(roiBlurred, BALL_COLOR_HSV_MIN, BALL_COLOR_
     %imshow(roi_binarized);
 end
 
-function posPositions = detectBallBoundaries(roiBinarized, roiRect)
-    [B, L] = bwboundaries(roiBinarized);
-    %posPositions = [];
-    %figure; imshow(frame);
-    %hold on;
-    posPositions = [];
-    
-    stats = regionprops(L,'Area','Centroid');
+function [xc,yc,R,a] = circlefit(x,y)
+%CIRCFIT  Fits a circle in x,y plane
+%
+% [XC, YC, R, A] = CIRCFIT(X,Y)
+% Result is center point (yc,xc) and radius R.  A is an optional
+% output describing the circle's equation:
+%
+%   x^2+y^2+a(1)*x+a(2)*y+a(3)=0
+         
+% by Bucher izhak 25/oct/1991
 
-    threshold = 0.75; % let's see how to set this threshold better 
-
-    % loop over the boundaries
-    for k = 1:length(B)
-        boundary = B{k};
-        
-        % compute a simple estimate of the object's perimeter
-        delta_sq = diff(boundary).^2;
-        perimeter = sum(sqrt(sum(delta_sq,2)));
-        
-        % obtain the area calculation corresponding to label 'k'
-        area = stats(k).Area;
-        
-        % compute the roundness metric
-        metric = 4*pi*area/perimeter^2;
-        
-        % display the results
-        %metric_string = sprintf('%2.2f',metric);
-        
-        % mark objects above the threshold with a black circle
-        if metric > threshold
-            centroid = stats(k).Centroid;
-            centroid(1) = centroid(1) + roiRect(1);
-            centroid(2) = centroid(2) + roiRect(2);
-            posPositions = [posPositions; centroid];
-            %currentMax = metric;
-            %plot(centroid(1),centroid(2),'ko');
-        end
-
-      %text(boundary(1,2)-35,boundary(1,1)+13,metric_string,'Color','y',...
-       %    'FontSize',14,'FontWeight','bold');
-
-    end
+n=length(x);  xx=x.*x; yy=y.*y; xy=x.*y;
+A=[sum(x) sum(y) n;sum(xy) sum(yy) sum(y);sum(xx) sum(xy) sum(x)];
+B=[-sum(xx+yy) ; -sum(xx.*y+yy.*y) ; -sum(xx.*x+xy.*y)];
+a=A\B;
+xc = -.5*a(1);
+yc = -.5*a(2);
+R  =  sqrt((a(1)^2+a(2)^2)/4-a(3));
 
 end
 
-function [circles, radii] = getBallWithHough(roiBinarized, roiRect, RADIUSRANGE)
-    cannyRoi = edge(roiBinarized, 'Canny');
-    
-    [circles, radii] = imfindcircles(cannyRoi, RADIUSRANGE); % dynamic set this threshold according to ball size!!
-    
-    % for each circel correct the center position 
+function minError = twoStageBallDetection(roiBinarized, roiRect, positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER)
+    % weights for the second stage equation 
+    ww = 1;
+    wa = 1;
+    wh = 1;
+    wp = 1;
+    wr = 1;
+
+    % bwboundaries gives ROWS and COLUMNS = Height, width
+    [B, L] = bwboundaries(roiBinarized);
+    minError = [0, 0, inf]; 
+    stats = regionprops(L, 'Area', 'Centroid', 'BoundingBox');
    
-    if ~isempty(circles)
-        for i = 1:length(circles(:,1))
-            circles(i, 1) = circles(i,1) + roiRect(1);
-            circles(i, 2) = circles(i,2) + roiRect(2);
+    % loop over the boundaries
+    for k = 1:length(B)
+        
+        boundary = B{k};
+        
+        % ----- FIRST STAGE ----- %
+        
+        % --- ROUNDED UPPER CONTOUR --- %
+        % Get upper contour pixels ( y = boundary(:,1) )
+        upperContour = boundary( boundary(:,1) <= stats(k).BoundingBox(4)/2 + stats(k).BoundingBox(2), :);
+        % fit in a circle
+        if length(upperContour) < 4
+            RUC = false;
+        else
+            [xc, yc, R] = circlefit(upperContour(:,2), upperContour(:,1));
+            
+            % calculate the error
+            n = length(upperContour(:,1));
+            sumError = 0;
+            for i=1:n
+                d = sqrt((upperContour(i,2)- xc)^2 + (upperContour(i,1) - yc)^2);
+                sumError = sumError + abs(d - R)/R;
+            end
+            
+            Eruc = sumError/n;
+            % fine tune the threshold
+            if Eruc < 0.2
+                RUC = true;
+            else
+                RUC = false;
+            end
         end
+        
+        % pay attention how this will work in practice, there may be
+        % problem until a prediciont can be made!
+        centroid = stats(k).Centroid;
+        centroid(1) = centroid(1) + roiRect(1);
+        centroid(2) = centroid(2) + roiRect(2);
+        
+        mc = false;
+        mp = false;
+        T = false;
+        if ~isempty(positions)
+            if length(positions(:,1)) > 1
+                
+                prediction = interp1(positions(:,3), positions(:,1:2), nextTs, 'linear', 'extrap');
+                
+                % --- POSITION --- %
+                distOOI = pdist([centroid; prediction], 'euclidean');
+                if distOOI < 1.5*BALL_SIZE % fine tune the maximum dist
+                    T = true;
+                end
+                
+                % --- MOTION --- %
+                % taking into account the last known ball location..
+                distC = pdist([centroid; positions(length(positions(:,1)), 1:2)], 'euclidean');
+                if distC > 0.3 * BALL_SIZE % set this threshold!
+                    mc = true;
+                end
+                
+                distP = pdist([prediction; positions(length(positions(:,1)), 1:2)], 'euclidean');
+                if distP > 0.3 * BALL_SIZE
+                    mp = true;
+                end
+            elseif length(positions(:,1)) == 1
+                % still don't have enough for a prediction, check only
+                % movement
+                distC = pdist([centroid; positions(1,1:2)], 'euclidean');
+                if distC > 0.3 * BALL_SIZE % set this threshold!
+                    mc = true;
+                end
+            end
+        end
+        
+        % ----- SECOND STAGE ----- %
+        if RUC + T + mc + mp > 1
+            
+            area = stats(k).Area;
+            
+            % compute a simple estimate of the object's perimeter
+            delta_sq = diff(boundary).^2;
+            perimeter = sum(sqrt(sum(delta_sq,2)));
+            
+            % roundness metric
+            roundness = 4*pi*area/perimeter^2;
+            
+            
+            maxHeight = stats(k).BoundingBox(4);
+            maxWidth = stats(k).BoundingBox(3);
+            
+            E = (Eruc + wa * abs(area - BALL_AREA)/BALL_AREA + ww * abs(maxWidth - BALL_SIZE)/(BALL_SIZE) + ...
+                wh * abs(maxHeight - BALL_SIZE)/(BALL_SIZE) + wp * abs(perimeter - BALL_PERIMETER)/BALL_PERIMETER + ...
+                wr * abs(roundness - 1))/ 6*(RUC + T + mc + mp);
+            
+            if E < minError(3)
+                minError(3) = E;
+                minError(1) = centroid(1);
+                minError(2) = centroid(2);
+            end
+        end
+        
     end
-     
+    
+    % should return the error function of the object 
 end
 
 function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, first_threshold] = firstPass(roiBlurred, ballColor, h, ...
-    MAX_ITERATIONS, first_threshold, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA)
+    MAX_ITERATIONS, first_threshold, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH)
 
     iteration = 0;
     best_first_pass = [-1, 1000];
@@ -335,7 +397,7 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, first_
     % last one?
     while(~candidate_found && iteration < MAX_ITERATIONS)
 
-        roiBinarized = thresholdImg(roiBlurred, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA);
+        roiBinarized = thresholdImg(roiBlurred, FIRST_PASS_HSV_MIN, FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
 
         candidateBallsInfo = bwconncomp(roiBinarized, 4);
 
@@ -391,7 +453,7 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, first_
 
     if (~candidate_found && iteration - 1 ~= best_first_pass(1))
         if best_first_pass(2) < 1000
-            roiBinarized = thresholdImg(roiBlurred, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA);
+            roiBinarized = thresholdImg(roiBlurred, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
         else 
             BEST_FIRST_PASS_HSV_MIN = FIRST_PASS_HSV_MIN;
             BEST_FIRST_PASS_HSV_MAX = FIRST_PASS_HSV_MAX;
@@ -402,7 +464,7 @@ end
 
 function [candidateBallsRoi,  BEST_SECOND_PASS_HSV_MIN, BEST_SECOND_PASS_HSV_MAX, second_threshold] = secondPass(candidateBallsRoi, ...
    ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
-   SMALLESTACCEPTABLEAREA, BALL_AREA )
+   BALL_AREA )
 
     % SECOND PASS AND CHOOSE BALL
     for i = length(candidateBallsRoi)
@@ -416,7 +478,7 @@ function [candidateBallsRoi,  BEST_SECOND_PASS_HSV_MIN, BEST_SECOND_PASS_HSV_MAX
 
         while(~area_ok && iteration < MAX_ITERATIONS)
 
-            candidateRoiBinarized = thresholdImg(candidateRoi, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA);
+            candidateRoiBinarized = thresholdImg(candidateRoi, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
 
             [~, L] = bwboundaries(candidateRoiBinarized, 'noholes');
             stats = regionprops(L,'Area');
@@ -508,7 +570,7 @@ function [candidateBallsRoi,  BEST_SECOND_PASS_HSV_MIN, BEST_SECOND_PASS_HSV_MAX
         % RESTORE BEST THRESHOLD
         if (~area_ok && iteration - 1 ~= best_sec_pass(1))
             if best_sec_pass(2) < Inf
-                candidateRoiBinarized = thresholdImg(candidateRoi, BEST_SECOND_PASS_HSV_MIN, BEST_SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, SMALLESTACCEPTABLEAREA);
+                candidateRoiBinarized = thresholdImg(candidateRoi, BEST_SECOND_PASS_HSV_MIN, BEST_SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
             else
                 BEST_SECOND_PASS_HSV_MIN = SECOND_PASS_HSV_MIN;
                 BEST_SECOND_PASS_HSV_MAX = SECOND_PASS_HSV_MAX;
