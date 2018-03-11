@@ -18,11 +18,9 @@ ADAPTIVE_HEIGHT = ROI_HEIGHT;
 
 % kernel for blurring. VALUE: 3-sigma rule
 BLUR_KERNEL_LENGTH = (BALL_SIZE-1)/6; 
-CLOSING_KERNEL_LENGTH = round(BALL_SIZE/2); % try this value a little more
+CLOSING_KERNEL_LENGTH = round(BALL_SIZE/2);
 
 % ---- END OF BALL RELATED CONSTANTS ---- %
-
-
 
 % ---- BEGINNING OF THE CODE ---- %
 
@@ -136,7 +134,7 @@ while hasFrame(v)
         end
         
         % --- SECOND PASS: RELAXED THRESHOLD --- % 
-        [candidateBallsRoiBin,  SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, second_threshold] = secondPass(candidateBallsRoi, ...
+        [candidateBallsRoiBin, candidateBallsHSV] = secondPass(candidateBallsRoi, ...
             ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
             BALL_AREA);
         
@@ -152,12 +150,15 @@ while hasFrame(v)
                 candidateRoiRect(i, 2) = candidateRoiRect(i, 2) + roiRect(2);
             end
             
-            nextTs = v.CurrentTime+1/v.FrameRate;
+            nextTs = v.CurrentTime; %+1/v.FrameRate;
             error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
             
             
             if error < posError(3)
-                posError = error; 
+                posError = error;
+                SECOND_PASS_HSV_MIN = candidateBallsHSV(i, 1:3);
+                SECOND_PASS_HSV_MAX = candidateBallsHSV(i, 4:6);
+                second_threshold = candidateBallsHSV(i, 7);
             end
 
         end
@@ -179,7 +180,7 @@ vq = interp1(positions(:, 3), positions(:, 1:2), interval , 'spline');
 hold on; plot(vq(:,1), vq(:,2), 'r');
 
 % search for the bounce 
-% analyzing y in three frames
+% analyzing y in 5 frames
 candidateTs = [];
 for i= 3:length(positions)-2
    if ((positions(i-2, 2) < positions(i-1, 2)) && (positions(i-1, 2) < positions(i,2)) && (positions(i, 2) > positions(i+1, 2)) && (positions(i+1, 2) > positions(i+2,2))) 
@@ -200,6 +201,9 @@ for j = 1:length(candidateTs)
        end
     end
 end
+
+
+% ---- END OF MAIN LOOP ---- % 
 
 function roiRect = calcRoiSize(position, frame_size, ROI_WIDTH, ROI_HEIGHT)
     x_min = position(1) - (ROI_WIDTH / 2);
@@ -374,6 +378,8 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 if distC > 0.5 * BALL_SIZE % set this threshold!
                     mc = true;
                 end
+                %let's give a free point
+                mp = 1;
             end
         end
         
@@ -487,6 +493,8 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
         if best_first_pass(2) < 1000
             roiBinarized = thresholdImg(roiBlurred, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH);
         else 
+            % we could give additional tries here with a smaller
+            % threshold.. 
             BEST_FIRST_PASS_HSV_MIN = FIRST_PASS_HSV_MIN;
             BEST_FIRST_PASS_HSV_MAX = FIRST_PASS_HSV_MAX;
             best_threshold = first_threshold;
@@ -495,11 +503,12 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
 
 end
 
-function [candidateBallsRoi,  BEST_SEC_PASS_HSV_MIN, BEST_SEC_PASS_HSV_MAX, best_sec_threshold] = secondPass(candidateBallsRoi, ...
+function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, ...
    ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
    BALL_AREA )
 
-    best_sec_pass = Inf; 
+    %best_sec_pass = Inf; 
+    candidateBallsHSV = [];
 
     % SECOND PASS (RELAXED THRESHOLD)  
     for i = 1:length(candidateBallsRoi)
@@ -521,7 +530,7 @@ function [candidateBallsRoi,  BEST_SEC_PASS_HSV_MIN, BEST_SEC_PASS_HSV_MAX, best
             stats = regionprops(L,'Area');
             
             if ~isempty(stats)
-                % confirm if this is okay
+                % not ok!
                 area = max([stats.Area]);
                 aux_area = abs(BALL_AREA - area)/BALL_AREA;
                 % confirm this area threshold
@@ -626,18 +635,23 @@ function [candidateBallsRoi,  BEST_SEC_PASS_HSV_MIN, BEST_SEC_PASS_HSV_MAX, best
             end
         end
        
-        if best_sec_pass > best_it(2)
-            best_sec_pass = best_it(2);
-            BEST_SEC_PASS_HSV_MAX = BEST_ITERATION_HSV_MAX;
-            BEST_SEC_PASS_HSV_MIN = BEST_ITERATION_HSV_MIN;
-            best_sec_threshold = best_iteration_threshold;
-        elseif best_it(2) == Inf
-            BEST_SEC_PASS_HSV_MAX = SECOND_PASS_HSV_MAX;
-            BEST_SEC_PASS_HSV_MIN = SECOND_PASS_HSV_MIN;
-            best_sec_threshold = second_threshold;
+%         if best_sec_pass > best_it(2)
+%             best_sec_pass = best_it(2);
+%             BEST_SEC_PASS_HSV_MAX = BEST_ITERATION_HSV_MAX;
+%             BEST_SEC_PASS_HSV_MIN = BEST_ITERATION_HSV_MIN;
+%             best_sec_threshold = best_iteration_threshold;
+%         elseif best_it(2) == Inf
+%             BEST_SEC_PASS_HSV_MAX = SECOND_PASS_HSV_MAX;
+%             BEST_SEC_PASS_HSV_MIN = SECOND_PASS_HSV_MIN;
+%             best_sec_threshold = second_threshold;
+%         end
+         candidateBallsRoi{i} = candidateRoiBinarized;
+        % EITHER KEEP BEST_IT OR THIS BELOW!! 
+        if best_it(2) == inf
+            candidateBallsHSV = [candidateBallsHSV; SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, second_threshold];
+        else
+            candidateBallsHSV = [candidateBallsHSV; BEST_ITERATION_HSV_MIN, BEST_ITERATION_HSV_MAX, best_iteration_threshold];
         end
-        candidateBallsRoi{i} = candidateRoiBinarized;
     end
-
 
 end
