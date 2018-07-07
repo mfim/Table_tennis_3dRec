@@ -3,16 +3,18 @@ clear;
 close all;
 fontSize = 20;
 
+% KNOWN BUG!! : FIRST TRHESHOLD WENT INSANE HIGH! &
+
 MAX_ITERATIONS = 3;
 
 % ---- BALL RELATED CONSTANTS ---- % 
 
-BALL_SIZE = 13; % pixels of the ball, CALIBRATE THE CAMERA, this comes automatically 
+BALL_SIZE = 20; % pixels of the ball 
 BALL_AREA = pi * (BALL_SIZE/2)^2;
 BALL_PERIMETER = 2 * pi * (BALL_SIZE/2);
 RADIUSRANGE = [round(BALL_SIZE/2-0.3*BALL_SIZE/2), round(BALL_SIZE/2+0.3*BALL_SIZE/2)]; 
 ROI_WIDTH = BALL_SIZE * 10; %this can vary with the video FPS 
-ROI_HEIGHT = BALL_SIZE * 5;
+ROI_HEIGHT = BALL_SIZE * 10;
 ADAPTIVE_WIDTH = ROI_WIDTH;
 ADAPTIVE_HEIGHT = ROI_HEIGHT;
 
@@ -26,7 +28,8 @@ CLOSING_KERNEL_LENGTH = round(BALL_SIZE/2);
 
 %prompt = 'Input the name of the video file: ';
 %videoName = input(prompt, 's');
-videoName = 'Video/orange_ball_high.mp4';
+%videoName = 'Video/5-m-60fps.mp4';
+videoName = 'Video/5-r-60fps.mp4';
 v = VideoReader(videoName);
 
 prompt = 'Frames to be skipped: ';
@@ -36,28 +39,32 @@ if isnan(skips) || fix(skips) ~= skips
   return;
 end
 
-prompt = 'Color of the ball ([o] - Orange [w] - White):  ';
-ballColor = input(prompt, 's');
+% White is not implemented
+% prompt = 'Color of the ball ([o] - Orange [w] - White):  ';
+% ballColor = input(prompt, 's');
+% 
+% % --- set the initial color thresholds --- % 
+% if strcmp(ballColor, 'o')
+%     h = 36; first_threshold = 5; second_threshold = 8;
+%     FIRST_PASS_HSV_MIN = [(h - first_threshold)/360, 60/100, 55/100];
+%     FIRST_PASS_HSV_MAX = [(h + first_threshold)/360, 1, 1];
+%     % may be add a variable in the saturation as well 
+%     SECOND_PASS_HSV_MIN = [(h - second_threshold)/360, 50/100, 45/100];
+%     SECOND_PASS_HSV_MAX = [(h + second_threshold)/360, 1, 1];
+% elseif strcmp(ballColor, 'w')
+%     h = 10; first_threshold = 5; second_threshold = 12;
+%     FIRST_PASS_HSV_MIN = [0, 0, 0.75];
+%     FIRST_PASS_HSV_MAX = [1, h+first_threshold/100, 1];
+%     SECOND_PASS_HSV_MIN = [0, 0, 0.6];
+%     SECOND_PASS_HSV_MAX = [1, h+second_threshold/100, 1];
+% else
+%     disp('Invalid! Accepted Colors: [o] - Orange or [w] - White');
+%     return;
+% end
 
-% --- set the initial color thresholds --- % 
-if strcmp(ballColor, 'o')
-    h = 35; first_threshold = 10; second_threshold = 25;
-    FIRST_PASS_HSV_MIN = [(h - first_threshold)/360, 45/100, 30/100];
-    FIRST_PASS_HSV_MAX = [(h + first_threshold)/360, 1, 1];
-    % may be add a variable in the saturation as well 
-    SECOND_PASS_HSV_MIN = [(h - second_threshold)/360, 30/100, 0];
-    SECOND_PASS_HSV_MAX = [(h + second_threshold)/360, 1, 1];
-elseif strcmp(ballColor, 'w')
-    h = 10; first_threshold = 5; second_threshold = 12;
-    FIRST_PASS_HSV_MIN = [0, 0, 0.75];
-    FIRST_PASS_HSV_MAX = [1, h+first_threshold/100, 1];
-    SECOND_PASS_HSV_MIN = [0, 0, 0.6];
-    SECOND_PASS_HSV_MAX = [1, h+second_threshold/100, 1];
-else
-    disp('Invalid! Accepted Colors: [o] - Orange or [w] - White');
-    return;
-end
-
+% just for now.. keep the ballcolor
+ballColor = 'o';
+first_threshold = 5; second_threshold = 8;
 
 % --- var initialization --- %
 skipped = 0;
@@ -66,7 +73,8 @@ ball_found_prev = false;
 
 first_frame = true;
 
-
+% to debug iterations
+debug = 0;
 % --- MAIN LOOP --- %
 while hasFrame(v)
     
@@ -76,7 +84,7 @@ while hasFrame(v)
             frame = readFrame(v);
         end
         skipped=skipped+1;
-    else
+        else
         
         frame = readFrame(v);
         ball_found = 0;
@@ -85,6 +93,8 @@ while hasFrame(v)
         
         % calculate the ROI 
         if ball_found_prev == 1
+            ADAPTIVE_WIDTH = ROI_WIDTH;
+            ADAPTIVE_HEIGHT = ROI_HEIGHT;
             roiRect = calcRoiSize(positions(length(positions(:,1)), :), [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
             roi = imcrop(frame, roiRect);
         else
@@ -93,6 +103,8 @@ while hasFrame(v)
                 imshow(frame);
                 [positions(1), positions(2)] = getpts;
                 positions(3) = v.CurrentTime;
+                [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(positions(1), positions(2), ...
+                    frame, first_threshold, second_threshold);
                 roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
                 frame = readFrame(v);
                 roi = imcrop(frame, roiRect);
@@ -112,6 +124,11 @@ while hasFrame(v)
             end
         end
         
+        debug = debug+1; 
+        if (debug == 26)
+            disp('dummy');
+        end
+        
         roiBlurred = imgaussfilt(roi, BLUR_KERNEL_LENGTH);
         
         % --- FIRST PASS: COARSE THRESHOLD --- %
@@ -125,7 +142,7 @@ while hasFrame(v)
         if ~isempty(stats)
             for i=1:length(stats(:,1))
                 % may be don't save candidateRoiRect 
-                candidateRoiRect(i,:) = calcRoiSize(stats(i).Centroid, [size(frame,2), size(frame,1)], 4*BALL_SIZE, 2*BALL_SIZE);
+                candidateRoiRect(i,:) = calcRoiSize(stats(i).Centroid, [size(frame,2), size(frame,1)], 5*BALL_SIZE, 3*BALL_SIZE);
                 candidateBallsRoi{i} = imcrop(roiBlurred, candidateRoiRect(i, :));
             end
         else 
@@ -133,41 +150,48 @@ while hasFrame(v)
             candidateBallsRoi{1} = roiBlurred;
         end
         
-        % --- SECOND PASS: RELAXED THRESHOLD --- % 
-        [candidateBallsRoiBin, candidateBallsHSV] = secondPass(candidateBallsRoi, ...
-            ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
-            BALL_AREA);
-        
         posError = [0, 0, inf];
         
-        % --- FIND THE BALL! --- %
-        for i = 1:length(candidateBallsRoiBin)
-            candidateRoiBin = candidateBallsRoiBin{i};
-            
-            % in case we're using a ROI inside the ROI
-            if candidateRoiRect ~= roiRect
-                candidateRoiRect(i, 1) = candidateRoiRect(i, 1) + roiRect(1);
-                candidateRoiRect(i, 2) = candidateRoiRect(i, 2) + roiRect(2);
-            end
-            
-            nextTs = v.CurrentTime; %+1/v.FrameRate;
-            error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
-            
-            
-            if error < posError(3)
-                posError = error;
-                SECOND_PASS_HSV_MIN = candidateBallsHSV(i, 1:3);
-                SECOND_PASS_HSV_MAX = candidateBallsHSV(i, 4:6);
-                second_threshold = candidateBallsHSV(i, 7);
+        if ~isempty(stats)
+        
+            % check the returns here, seem wrong!
+            % --- SECOND PASS: RELAXED THRESHOLD --- % 
+            [candidateBallsRoiBin, candidateBallsHSV] = secondPass(candidateBallsRoi, ...
+                ballColor, h, MAX_ITERATIONS, second_threshold, SECOND_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, CLOSING_KERNEL_LENGTH, ...
+                BALL_AREA);
+
+
+            % --- FIND THE BALL! --- %
+            for i = 1:length(candidateBallsRoiBin)
+                candidateRoiBin = candidateBallsRoiBin{i};
+
+                % in case we're using a ROI inside the ROI
+                if ~isequal(candidateRoiRect, roiRect)
+                    candidateRoiRect(i, 1) = candidateRoiRect(i, 1) + roiRect(1);
+                    candidateRoiRect(i, 2) = candidateRoiRect(i, 2) + roiRect(2);
+                end
+
+                nextTs = v.CurrentTime; %+1/v.FrameRate;
+                error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
+
+                %SECOND_PASS_HSV_MIN = candidateBallsHSV(i, 1:3);
+                %SECOND_PASS_HSV_MAX = candidateBallsHSV(i, 4:6);
+                %second_threshold = candidateBallsHSV(i, 7);
+
+                if error < posError(3)
+                    posError = error;
+                    SECOND_PASS_HSV_MIN = candidateBallsHSV(i, 1:3);
+                    SECOND_PASS_HSV_MAX = candidateBallsHSV(i, 4:6);
+                    second_threshold = candidateBallsHSV(i, 7);
+                end
+
             end
 
+            if posError(3) < inf 
+                ball_found = true;
+                positions = [positions ; posError(1), posError(2), v.CurrentTime];
+            end
         end
-        
-        if posError(3) < inf 
-            ball_found = true;
-            positions = [positions ; posError(1), posError(2), v.CurrentTime];
-        end
-         
         frame_previous = frame;
         ball_found_prev = ball_found;        
     end
@@ -204,6 +228,35 @@ end
 
 
 % ---- END OF MAIN LOOP ---- % 
+
+function [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(x, y, frame, first_threshold, second_threshold)
+    
+    ball_hsv = rgb2hsv(frame(round(y),round(x), :));
+    h = ball_hsv(:,1)*360;
+    
+    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 57/100, 55/100];
+    FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
+    % may be add a variable in the saturation as well 
+    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 50/100, 45/100];
+    SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
+    
+    % handle edges
+    if(FIRST_PASS_HSV_MIN(1) < 0)
+        FIRST_PASS_HSV_MIN(1) = 0;
+    end
+    if(FIRST_PASS_HSV_MAX(1) > 1)
+        FIRST_PASS_HSV_MAX(1) = 1;
+    end
+    if(SECOND_PASS_HSV_MIN(1) < 0)
+        SECOND_PASS_HSV_MIN(1) = 0;
+    end
+    if(SECOND_PASS_HSV_MAX(1) > 1)
+        SECOND_PASS_HSV_MAX(1) = 1;
+    end
+
+    
+    
+end
 
 function roiRect = calcRoiSize(position, frame_size, ROI_WIDTH, ROI_HEIGHT)
     x_min = position(1) - (ROI_WIDTH / 2);
@@ -333,10 +386,33 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
             
             Eruc = sumError/n;
             % fine tune the threshold
-            if Eruc < 0.1
+            if Eruc < 0.12
                 RUC = true;
             else
-                RUC = false;
+                
+                lowerContour = boundary( boundary(:,1) >= stats(k).BoundingBox(4)/2 + stats(k).BoundingBox(2), :);
+                % fit in a circle
+                if length(upperContour) < 4
+                    RUC = false;
+                else
+                    [xc, yc, R] = circlefit(lowerContour(:,2), lowerContour(:,1));
+            
+                    % calculate the error
+                    n = length(lowerContour(:,1));
+                    sumError = 0;
+                    for i=1:n
+                        d = sqrt((lowerContour(i,2)- xc)^2 + (lowerContour(i,1) - yc)^2);
+                        sumError = sumError + abs((d - R)/R);
+                    end
+
+                    Eruc = sumError/n;
+
+                    if Eruc < 0.12
+                        RUC = true;
+                    else
+                        RUC = false;
+                    end
+                end
             end
         end
         
@@ -363,7 +439,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % --- MOTION --- %
                 % taking into account the last known ball location..
                 distC = pdist([centroid; positions(length(positions(:,1)), 1:2)], 'euclidean');
-                if distC > 0.5 * BALL_SIZE % set this threshold!
+                    if (distC > 0.8 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
                     mc = true;
                 end
                 
@@ -375,7 +451,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % still don't have enough for a prediction, check only
                 % movement
                 distC = pdist([centroid; positions(1,1:2)], 'euclidean');
-                if distC > 0.5 * BALL_SIZE % set this threshold!
+                if distC > 0.8 * BALL_SIZE % set this threshold!
                     mc = true;
                 end
                 %let's give a free point
@@ -441,7 +517,7 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
             end
 
             % increase the threshold
-            first_threshold = first_threshold*0.80;
+            first_threshold = first_threshold*0.90;
 
             if strcmp(ballColor, 'o')
                 FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
@@ -460,27 +536,29 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
             best_threshold = first_threshold;
         else
             % decrease the threshold
-            first_threshold = first_threshold * 1.2;
-            if strcmp(ballColor, 'o')
-                FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
-                %FIRST_PASS_HSV_MIN(2) = (75 - first_threshold/2)/100;
-                FIRST_PASS_HSV_MAX(1) = (h + first_threshold)/360;
+            if (first_threshold < 12) 
+                first_threshold = first_threshold * 1.1;
+                if strcmp(ballColor, 'o')
+                    FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
+                    %FIRST_PASS_HSV_MIN(2) = (75 - first_threshold/2)/100;
+                    FIRST_PASS_HSV_MAX(1) = (h + first_threshold)/360;
 
-                % handle edges
-                if(FIRST_PASS_HSV_MIN(1) < 0)
-                    FIRST_PASS_HSV_MIN(1) = 0;
-                end
-                %if FIRST_PASS_HSV_MIN(2) < 0
-                %    FIRST_PASS_HSV_MIN(2) = 0;
-                %end
-                if(FIRST_PASS_HSV_MAX(1) > 1)
-                    FIRST_PASS_HSV_MAX(1) = 1;
-                end
-            else
-                %FIRST_PASS_HSV_MIN = [0, 0, 0.60];
-                FIRST_PASS_HSV_MAX(2) = h+first_threshold/100;
-                if(FIRST_PASS_HSV_MAX(2) > 1)
-                    FIRST_PASS_HSV_MAX(2) = 1;
+                    % handle edges
+                    if(FIRST_PASS_HSV_MIN(1) < 0)
+                        FIRST_PASS_HSV_MIN(1) = 0;
+                    end
+                    %if FIRST_PASS_HSV_MIN(2) < 0
+                    %    FIRST_PASS_HSV_MIN(2) = 0;
+                    %end
+                    if(FIRST_PASS_HSV_MAX(1) > 1)
+                        FIRST_PASS_HSV_MAX(1) = 1;
+                    end
+%                 else
+%                     %FIRST_PASS_HSV_MIN = [0, 0, 0.60];
+%                     FIRST_PASS_HSV_MAX(2) = h+first_threshold/100;
+%                     if(FIRST_PASS_HSV_MAX(2) > 1)
+%                         FIRST_PASS_HSV_MAX(2) = 1;
+%                     end
                 end
             end
         end
@@ -534,13 +612,13 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                 area = max([stats.Area]);
                 aux_area = abs(BALL_AREA - area)/BALL_AREA;
                 % confirm this area threshold
-                if  aux_area < 0.4
+                if  aux_area < 0.75
                     area_ok = true;
                     BEST_ITERATION_HSV_MAX = IT_HSV_MAX;
                     BEST_ITERATION_HSV_MIN = IT_HSV_MIN;
                     best_iteration_threshold = it_threshold;
                     best_it = [iteration, abs(area - BALL_AREA)];
-                    % untested control sequence
+                % untested control sequence
                 elseif area > BALL_AREA
 
                     if best_it(2) > area - BALL_AREA
@@ -551,14 +629,16 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
 
                     % increase the threshold
-                    it_threshold = it_threshold*0.80;
+                    if (it_threshold > 5)
+                        it_threshold = it_threshold*0.80;
 
-                    if strcmp(ballColor, 'o')
-                        IT_HSV_MIN(1) = (h - it_threshold)/360;
-                        %SECOND_PASS_HSV_MIN(2) = (55 - second_threshold/2)/100;
-                        IT_HSV_MAX(1) = (h + it_threshold)/360;
-                    else
-                        IT_HSV_MAX(2) = h + it_threshold/100;
+                        if strcmp(ballColor, 'o')
+                            IT_HSV_MIN(1) = (h - it_threshold)/360;
+                            %SECOND_PASS_HSV_MIN(2) = (55 - second_threshold/2)/100;
+                            IT_HSV_MAX(1) = (h + it_threshold)/360;
+                        else
+                            IT_HSV_MAX(2) = h + it_threshold/100;
+                        end
                     end
                 else
 
