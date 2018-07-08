@@ -64,7 +64,7 @@ end
 
 % just for now.. keep the ballcolor
 ballColor = 'o';
-first_threshold = 5; second_threshold = 8;
+first_threshold = 5; second_threshold = 20;
 
 % --- var initialization --- %
 skipped = 0;
@@ -125,7 +125,7 @@ while hasFrame(v)
         end
         
         debug = debug+1; 
-        if (debug == 20)
+        if (debug == 50)
             disp('dummy');
         end
         
@@ -142,7 +142,7 @@ while hasFrame(v)
         if ~isempty(stats)
             for i=1:length(stats(:,1))
                 % may be don't save candidateRoiRect 
-                candidateRoiRect(i,:) = calcRoiSize(stats(i).Centroid, [size(frame,2), size(frame,1)], 5*BALL_SIZE, 3*BALL_SIZE);
+                candidateRoiRect(i,:) = calcRoiSize(stats(i).Centroid, [size(frame,2), size(frame,1)], 2.5*BALL_SIZE, 2.5*BALL_SIZE);
                 candidateBallsRoi{i} = imcrop(roiBlurred, candidateRoiRect(i, :));
             end
         else 
@@ -234,10 +234,10 @@ function [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PA
     ball_hsv = rgb2hsv(frame(round(y),round(x), :));
     h = ball_hsv(:,1)*360;
     
-    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 50/100, 40/100];
+    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 50/100];
     FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
     % may be add a variable in the saturation as well 
-    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 40/100];
+    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 40/100, 0/100];
     SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
     
     % handle edges
@@ -346,6 +346,108 @@ R  =  sqrt((a(1)^2+a(2)^2)/4-a(3));
 
 end
 
+function [xc, yc, R] = CircleFitByPratt(x,y)
+
+%--------------------------------------------------------------------------
+%  
+%     Circle fit by Pratt
+%      V. Pratt, "Direct least-squares fitting of algebraic surfaces",
+%      Computer Graphics, Vol. 21, pages 145-152 (1987)
+%
+%     Input:  XY(n,2) is the array of coordinates of n points x(i)=XY(i,1), y(i)=XY(i,2)
+%
+%     Output: Par = [a b R] is the fitting circle:
+%                           center (a,b) and radius R
+%
+%     Note: this fit does not use built-in matrix functions (except "mean"),
+%           so it can be easily programmed in any programming language
+%
+%--------------------------------------------------------------------------
+
+n = size(x,1);      % number of data points
+
+XY(:,1) = x;
+XY(:,2) = y;
+
+centroid = mean(XY);   % the centroid of the data set
+
+%     computing moments (note: all moments will be normed, i.e. divided by n)
+
+Mxx=0; Myy=0; Mxy=0; Mxz=0; Myz=0; Mzz=0;
+
+for i=1:n
+    Xi = XY(i,1) - centroid(1);  %  centering data
+    Yi = XY(i,2) - centroid(2);  %  centering data
+    Zi = Xi*Xi + Yi*Yi;
+    Mxy = Mxy + Xi*Yi;
+    Mxx = Mxx + Xi*Xi;
+    Myy = Myy + Yi*Yi;
+    Mxz = Mxz + Xi*Zi;
+    Myz = Myz + Yi*Zi;
+    Mzz = Mzz + Zi*Zi;
+end
+   
+Mxx = Mxx/n;
+Myy = Myy/n;
+Mxy = Mxy/n;
+Mxz = Mxz/n;
+Myz = Myz/n;
+Mzz = Mzz/n;
+
+%    computing the coefficients of the characteristic polynomial
+
+Mz = Mxx + Myy;
+Cov_xy = Mxx*Myy - Mxy*Mxy;
+Mxz2 = Mxz*Mxz;
+Myz2 = Myz*Myz;
+
+A2 = 4*Cov_xy - 3*Mz*Mz - Mzz;
+A1 = Mzz*Mz + 4*Cov_xy*Mz - Mxz2 - Myz2 - Mz*Mz*Mz;
+A0 = Mxz2*Myy + Myz2*Mxx - Mzz*Cov_xy - 2*Mxz*Myz*Mxy + Mz*Mz*Cov_xy;
+A22 = A2 + A2;
+
+epsilon=1e-12; 
+ynew=1e+20;
+IterMax=20;
+xnew = 0;
+
+%    Newton's method starting at x=0
+
+for iter=1:IterMax
+    yold = ynew;
+    ynew = A0 + xnew*(A1 + xnew*(A2 + 4.*xnew*xnew));
+    if (abs(ynew)>abs(yold))
+        disp('Newton-Pratt goes wrong direction: |ynew| > |yold|');
+        xnew = 0;
+        break;
+    end
+    Dy = A1 + xnew*(A22 + 16*xnew*xnew);
+    xold = xnew;
+    xnew = xold - ynew/Dy;
+    if (abs((xnew-xold)/xnew) < epsilon), break, end
+    if (iter >= IterMax)
+        disp('Newton-Pratt will not converge');
+        xnew = 0;
+    end
+    if (xnew<0.)
+        fprintf(1,'Newton-Pratt negative root:  x=%f\n',xnew);
+        xnew = 0;
+    end
+end
+
+%    computing the circle parameters
+
+DET = xnew*xnew - xnew*Mz + Cov_xy;
+Center = [Mxz*(Myy-xnew)-Myz*Mxy , Myz*(Mxx-xnew)-Mxz*Mxy]/DET/2;
+
+xc = Center(:,1) +centroid(:,1); 
+yc = Center(:,2) +centroid(:,2);
+R = sqrt(Center*Center'+Mz+2*xnew);
+%Par = [Center+centroid , sqrt(Center*Center'+Mz+2*xnew)];
+
+end    %    CircleFitByPratt
+
+
 function minError = twoStageBallDetection(roiBinarized, roiRect, positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER)
     % weights for the second stage equation 
     ww = 0.2;
@@ -374,7 +476,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
         if length(upperContour) < 4
             RUC = false;
         else
-            [xc, yc, R] = circlefit(upperContour(:,2), upperContour(:,1));
+            [xc, yc, R] = CircleFitByPratt(upperContour(:,2), upperContour(:,1));
             
             % calculate the error
             n = length(upperContour(:,1));
@@ -386,7 +488,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
             
             Eruc = sumError/n;
             % fine tune the threshold
-            if Eruc < 0.16
+            if (Eruc < 0.1 && R < 1.1*(BALL_SIZE/2) && roiBinarized(round(yc), round(xc)))
                 RUC = true;
             else
                 
@@ -395,7 +497,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 if length(upperContour) < 4
                     RUC = false;
                 else
-                    [xc, yc, R] = circlefit(lowerContour(:,2), lowerContour(:,1));
+                    [xc, yc, R] = CircleFitByPratt(lowerContour(:,2), lowerContour(:,1));
             
                     % calculate the error
                     n = length(lowerContour(:,1));
@@ -407,7 +509,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
 
                     Eruc = sumError/n;
 
-                    if Eruc < 0.16
+                    if (Eruc < 0.1 && R < 1.4*(BALL_SIZE/2) && roiBinarized(round(yc), round(xc)))
                         RUC = true;
                     else
                         RUC = false;
@@ -439,19 +541,19 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % --- MOTION --- %
                 % taking into account the last known ball location..
                 distC = pdist([centroid; positions(length(positions(:,1)), 1:2)], 'euclidean');
-                if (distC > 0.8 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
+                if (distC > 0.3 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
                     % if the ball changed the x direction there is a big
                     % suspicion, so max movement is even less
-                     if((positions(length(positions(:,1)), 1) < positions(length(positions(:,1))-1, 1) && ...
-                             centroid(:,1) > positions(length(positions(:,1)), 1)) || ... 
-                             (positions(length(positions(:,1)), 1) > positions(length(positions(:,1))-1, 1) && ...
-                             centroid(:,1) < positions(length(positions(:,1)), 1)))
-                         if distC < 8 * BALL_SIZE      
-                             mc = true;
-                         end
-                     else
+%                      if((positions(length(positions(:,1)), 1) < positions(length(positions(:,1))-1, 1) && ...
+%                              centroid(:,1) > positions(length(positions(:,1)), 1)) || ... 
+%                              (positions(length(positions(:,1)), 1) > positions(length(positions(:,1))-1, 1) && ...
+%                              centroid(:,1) < positions(length(positions(:,1)), 1)))
+%                          if distC < 8 * BALL_SIZE      
+%                              mc = true;
+%                          end
+%                      else
                         mc = true;
-                    end
+%                     end
                 end
                 
 %                 distP = pdist([prediction; positions(length(positions(:,1)), 1:2)], 'euclidean');
@@ -462,7 +564,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % still don't have enough for a prediction, check only
                 % movement
                 distC = pdist([centroid; positions(1,1:2)], 'euclidean');
-                if distC > 0.8 * BALL_SIZE % set this threshold!
+                if distC > 0.3 * BALL_SIZE % set this threshold!
                     mc = true;
                 end
                 %let's give a free point
@@ -528,17 +630,18 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
             end
 
             % increase the threshold
-            first_threshold = first_threshold*0.90;
+            if (first_threshold > 2.5)
+                first_threshold = first_threshold*0.90;
 
-            if strcmp(ballColor, 'o')
-                FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
-                %FIRST_PASS_HSV_MIN(2) = (75 - first_threshold/2)/100;
-                FIRST_PASS_HSV_MAX(1) = (h + first_threshold)/360;
-            else
-                %FIRST_PASS_HSV_MIN = [0, 0, 0.6];
-                FIRST_PASS_HSV_MAX(2) = h+first_threshold/100;
+                if strcmp(ballColor, 'o')
+                    FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
+                    %FIRST_PASS_HSV_MIN(2) = (75 - first_threshold/2)/100;
+                    FIRST_PASS_HSV_MAX(1) = (h + first_threshold)/360;
+                else
+                    %FIRST_PASS_HSV_MIN = [0, 0, 0.6];
+                    FIRST_PASS_HSV_MAX(2) = h+first_threshold/100;
+                end
             end
-
         elseif candidateBallsInfo.NumObjects == 1
             candidate_found = true;
             best_first_pass = [iteration,candidateBallsInfo.NumObjects];
@@ -623,7 +726,7 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                 area = max([stats.Area]);
                 aux_area = abs(BALL_AREA - area)/BALL_AREA;
                 % confirm this area threshold
-                if  aux_area < 0.75
+                if  aux_area < 0.85
                     area_ok = true;
                     BEST_ITERATION_HSV_MAX = IT_HSV_MAX;
                     BEST_ITERATION_HSV_MIN = IT_HSV_MIN;
@@ -640,8 +743,8 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
 
                     % increase the threshold
-                    if (it_threshold > 5)
-                        it_threshold = it_threshold*0.80;
+                    if (it_threshold > 15)
+                        it_threshold = it_threshold*0.90;
 
                         if strcmp(ballColor, 'o')
                             IT_HSV_MIN(1) = (h - it_threshold)/360;
@@ -661,7 +764,7 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
 
                     % decrease the threshold
-                    it_threshold = it_threshold * 1.2;
+                    it_threshold = it_threshold * 1.1;
                     if strcmp(ballColor, 'o')
                         IT_HSV_MIN(1) = (h - it_threshold)/360;
                         %SECOND_PASS_HSV_MIN(2) = (55 - second_threshold/2)/100;
