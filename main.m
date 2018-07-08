@@ -125,7 +125,7 @@ while hasFrame(v)
         end
         
         debug = debug+1; 
-        if (debug == 26)
+        if (debug == 20)
             disp('dummy');
         end
         
@@ -234,10 +234,10 @@ function [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PA
     ball_hsv = rgb2hsv(frame(round(y),round(x), :));
     h = ball_hsv(:,1)*360;
     
-    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 57/100, 55/100];
+    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 50/100, 40/100];
     FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
     % may be add a variable in the saturation as well 
-    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 50/100, 45/100];
+    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 40/100];
     SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
     
     % handle edges
@@ -386,7 +386,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
             
             Eruc = sumError/n;
             % fine tune the threshold
-            if Eruc < 0.12
+            if Eruc < 0.16
                 RUC = true;
             else
                 
@@ -407,7 +407,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
 
                     Eruc = sumError/n;
 
-                    if Eruc < 0.12
+                    if Eruc < 0.16
                         RUC = true;
                     else
                         RUC = false;
@@ -439,14 +439,25 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % --- MOTION --- %
                 % taking into account the last known ball location..
                 distC = pdist([centroid; positions(length(positions(:,1)), 1:2)], 'euclidean');
-                    if (distC > 0.8 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
-                    mc = true;
+                if (distC > 0.8 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
+                    % if the ball changed the x direction there is a big
+                    % suspicion, so max movement is even less
+                     if((positions(length(positions(:,1)), 1) < positions(length(positions(:,1))-1, 1) && ...
+                             centroid(:,1) > positions(length(positions(:,1)), 1)) || ... 
+                             (positions(length(positions(:,1)), 1) > positions(length(positions(:,1))-1, 1) && ...
+                             centroid(:,1) < positions(length(positions(:,1)), 1)))
+                         if distC < 8 * BALL_SIZE      
+                             mc = true;
+                         end
+                     else
+                        mc = true;
+                    end
                 end
                 
-                %distP = pdist([prediction; positions(length(positions(:,1)), 1:2)], 'euclidean');
-                %if distP > 0.5 * BALL_SIZE
-                %    mp = true;
-                %end
+%                 distP = pdist([prediction; positions(length(positions(:,1)), 1:2)], 'euclidean');
+%                 if distP > 0.5 * BALL_SIZE
+%                     mp = true;
+%                 end
             elseif length(positions(:,1)) == 1
                 % still don't have enough for a prediction, check only
                 % movement
