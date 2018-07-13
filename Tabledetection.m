@@ -3,7 +3,7 @@ clear;
 close all;
 
 %% Edging
-I = imread('ping2.png');
+I = imread('ping.png');
 [HEIGHT, WIDTH, DIM] = size(I);
 
 LAB = rgb2lab(I);
@@ -25,7 +25,7 @@ P  = houghpeaks(H,20,'threshold',ceil(0.2*max(H(:))));
 x = T(P(:,2)); 
 y = R(P(:,1));
 
-plotInter = 0; 
+plotInter = 1; 
 
 % Find lines and plot them
 lines = houghlines(BW,T,R,P,'FillGap',150,'MinLength', 300);
@@ -39,6 +39,8 @@ COLOR_TRESHOLD = 40;
 BLUE_MAX = 270; 
 BLUE_MIN = 200;
 VLIGHT_MIN = 20;
+
+% Not used anymore
 MIN_AREA = 1e+4; 
 MAX_AREA = 2*1e+4; 
 
