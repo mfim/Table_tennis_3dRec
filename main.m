@@ -24,8 +24,8 @@ CLOSING_KERNEL_LENGTH = round(BALL_SIZE/2);
 
 % ---- BEGINNING OF THE CODE ---- %
 
-videoName = 'Video/5-m-60fps.mp4';
-%videoName = 'Video/5-m-120fps.mp4';
+%videoName = 'Video/5-m-60fps.mp4';
+videoName = 'Video/5-m-120fps.mp4';
 %videoName = 'Video/5-r-60fps.mp4';
 v = VideoReader(videoName);
 
@@ -45,7 +45,7 @@ end
 
 % just for now.. keep the ballcolor
 ballColor = 'o';
-first_threshold = 3; second_threshold = 10;
+first_threshold = 3; second_threshold = 8;
 
 % --- var initialization --- %
 skipped = 0;
@@ -109,7 +109,7 @@ while hasFrame(v)
         end
         
         debug = debug+1; 
-        if (debug == 25)
+        if (debug == 40)
             disp('dummy');
         end
         
@@ -239,7 +239,7 @@ function [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PA
     FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 70/100];
     FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
     % may be add a variable in the saturation as well 
-    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 35/100, 50/100];
+    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 70/100];
     SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
     
     % handle edges
@@ -654,7 +654,7 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
             best_threshold = first_threshold;
         else
             % decrease the threshold
-            if (first_threshold < 8) 
+            if (first_threshold < 6) 
                 first_threshold = first_threshold * 1.1;
                 if strcmp(ballColor, 'o')
                     FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
@@ -747,7 +747,7 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
 
                     % increase the threshold
-                    if (it_threshold > 10)
+                    if (it_threshold > 5)
                         it_threshold = it_threshold*0.90;
 
                         if strcmp(ballColor, 'o')
