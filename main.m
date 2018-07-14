@@ -3,13 +3,11 @@ clear;
 close all;
 fontSize = 20;
 
-% KNOWN BUG!! : FIRST TRHESHOLD WENT INSANE HIGH! &
-
 MAX_ITERATIONS = 3;
 
 % ---- BALL RELATED CONSTANTS ---- % 
 
-BALL_SIZE = 20; % pixels of the ball 
+BALL_SIZE = 22; % pixels of the ball 
 BALL_AREA = pi * (BALL_SIZE/2)^2;
 BALL_PERIMETER = 2 * pi * (BALL_SIZE/2);
 RADIUSRANGE = [round(BALL_SIZE/2-0.3*BALL_SIZE/2), round(BALL_SIZE/2+0.3*BALL_SIZE/2)]; 
@@ -26,11 +24,17 @@ CLOSING_KERNEL_LENGTH = round(BALL_SIZE/2);
 
 % ---- BEGINNING OF THE CODE ---- %
 
-%prompt = 'Input the name of the video file: ';
-%videoName = input(prompt, 's');
-%videoName = 'Video/5-m-60fps.mp4';
-videoName = 'Video/5-r-60fps.mp4';
+videoName = 'Video/5-m-60fps.mp4';
+%videoName = 'Video/5-m-120fps.mp4';
+%videoName = 'Video/5-r-60fps.mp4';
 v = VideoReader(videoName);
+
+% rough estimation of time in frames 
+% VideoReader does have a methdod currentTime, but 
+% for some reason it was giving wron information
+numFrames = round(v.duration * v.FrameRate);
+timeSingleFrame = v.duration / numFrames;
+currentTime = 0;
 
 prompt = 'Frames to be skipped: ';
 skips = str2double(input(prompt, 's'));
@@ -39,35 +43,13 @@ if isnan(skips) || fix(skips) ~= skips
   return;
 end
 
-% White is not implemented
-% prompt = 'Color of the ball ([o] - Orange [w] - White):  ';
-% ballColor = input(prompt, 's');
-% 
-% % --- set the initial color thresholds --- % 
-% if strcmp(ballColor, 'o')
-%     h = 36; first_threshold = 5; second_threshold = 8;
-%     FIRST_PASS_HSV_MIN = [(h - first_threshold)/360, 60/100, 55/100];
-%     FIRST_PASS_HSV_MAX = [(h + first_threshold)/360, 1, 1];
-%     % may be add a variable in the saturation as well 
-%     SECOND_PASS_HSV_MIN = [(h - second_threshold)/360, 50/100, 45/100];
-%     SECOND_PASS_HSV_MAX = [(h + second_threshold)/360, 1, 1];
-% elseif strcmp(ballColor, 'w')
-%     h = 10; first_threshold = 5; second_threshold = 12;
-%     FIRST_PASS_HSV_MIN = [0, 0, 0.75];
-%     FIRST_PASS_HSV_MAX = [1, h+first_threshold/100, 1];
-%     SECOND_PASS_HSV_MIN = [0, 0, 0.6];
-%     SECOND_PASS_HSV_MAX = [1, h+second_threshold/100, 1];
-% else
-%     disp('Invalid! Accepted Colors: [o] - Orange or [w] - White');
-%     return;
-% end
-
 % just for now.. keep the ballcolor
 ballColor = 'o';
-first_threshold = 5; second_threshold = 20;
+first_threshold = 3; second_threshold = 10;
 
 % --- var initialization --- %
 skipped = 0;
+%SLOPES = [];
 positions = [];
 ball_found_prev = false; 
 
@@ -81,11 +63,12 @@ while hasFrame(v)
     % skip the bad frames at the beginning
     if skipped < skips  
         if hasFrame(v)
+            currentTime = currentTime + timeSingleFrame;
             frame = readFrame(v);
         end
         skipped=skipped+1;
         else
-        
+        currentTime = currentTime + timeSingleFrame;
         frame = readFrame(v);
         ball_found = 0;
         candidateRoiRect = [];
@@ -106,6 +89,7 @@ while hasFrame(v)
                 [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(positions(1), positions(2), ...
                     frame, first_threshold, second_threshold);
                 roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
+                currentTime = currentTime + timeSingleFrame;
                 frame = readFrame(v);
                 roi = imcrop(frame, roiRect);
                 first_frame = false;
@@ -125,7 +109,7 @@ while hasFrame(v)
         end
         
         debug = debug+1; 
-        if (debug == 50)
+        if (debug == 25)
             disp('dummy');
         end
         
@@ -170,13 +154,9 @@ while hasFrame(v)
                     candidateRoiRect(i, 1) = candidateRoiRect(i, 1) + roiRect(1);
                     candidateRoiRect(i, 2) = candidateRoiRect(i, 2) + roiRect(2);
                 end
-
-                nextTs = v.CurrentTime; %+1/v.FrameRate;
-                error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
-
-                %SECOND_PASS_HSV_MIN = candidateBallsHSV(i, 1:3);
-                %SECOND_PASS_HSV_MAX = candidateBallsHSV(i, 4:6);
-                %second_threshold = candidateBallsHSV(i, 7);
+                
+                %[error, SLOPES ]= twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, currentTime, BALL_SIZE, BALL_AREA, BALL_PERIMETER, SLOPES);
+                error = twoStageBallDetection(candidateRoiBin, candidateRoiRect(i,:), positions, currentTime, BALL_SIZE, BALL_AREA, BALL_PERIMETER);
 
                 if error < posError(3)
                     posError = error;
@@ -189,7 +169,7 @@ while hasFrame(v)
 
             if posError(3) < inf 
                 ball_found = true;
-                positions = [positions ; posError(1), posError(2), v.CurrentTime];
+                positions = [positions ; posError(1), posError(2), currentTime];
             end
         end
         frame_previous = frame;
@@ -197,17 +177,26 @@ while hasFrame(v)
     end
 end
 
+[~, outlier] = hampel(positions, 1);
+final_positions = [];
+for i = 1:length(outlier)
+   if ~(outlier(i,1) || outlier(i,2) || outlier(i,3) == 1)
+       final_positions = [final_positions; positions(i,:)];
+   end
+end
+
 % let's plot the balls found, include the radius
-%hold on; plot(positions(:,1), positions(:,2), 'rx');
-interval = positions(1,3):0.0002:positions(length(positions),3);
-vq = interp1(positions(:, 3), positions(:, 1:2), interval , 'spline');
-hold on; plot(vq(:,1), vq(:,2), 'r');
+hold on; plot(final_positions(:,1), final_positions(:,2), 'ro');
+interval = final_positions(1,3):0.001:final_positions(length(final_positions),3);
+vq = interp1(final_positions(:, 3), final_positions(:, 1:2), interval , 'spline');
+hold on; plot(vq(:,1), vq(:,2), 'g--');
 
 % search for the bounce 
 % analyzing y in 5 frames
 candidateTs = [];
-for i= 3:length(positions)-2
-   if ((positions(i-2, 2) < positions(i-1, 2)) && (positions(i-1, 2) < positions(i,2)) && (positions(i, 2) > positions(i+1, 2)) && (positions(i+1, 2) > positions(i+2,2))) 
+for i= 3:length(final_positions)-2
+   if ((final_positions(i-2, 2) < final_positions(i-1, 2)) && (final_positions(i-1, 2) < final_positions(i,2)) && (final_positions(i, 2) > final_positions(i+1, 2)) && ...
+       (final_positions(i+1, 2) > final_positions(i+2,2))) 
        candidateTs = [candidateTs; i];
    end
 end
@@ -216,8 +205,8 @@ end
 bounceTs = [];
 bouncePoint = [];
 for j = 1:length(candidateTs)
-    interval = positions(candidateTs(j)-1,3):0.0002:positions(candidateTs(j)+1,3);
-    vq = interp1(positions(:, 3), positions(:, 1:2), interval , 'spline');
+    interval = final_positions(candidateTs(j)-1,3):0.001:final_positions(candidateTs(j)+1,3);
+    vq = interp1(final_positions(:, 3), final_positions(:, 1:2), interval , 'spline');
     for i = 4:length(vq)-3
        if ((vq(i-3, 2) < vq(i-2, 2)) && (vq(i-2, 2) < vq(i-1, 2)) && (vq(i-1, 2) < vq(i,2)) && (vq(i, 2) > vq(i+1, 2)) && (vq(i+1, 2) > vq(i+2,2)) && (vq(i+2, 2) > vq(i+3,2))) 
            bounceTs = [bounceTs ; interval(i)];
@@ -226,18 +215,31 @@ for j = 1:length(candidateTs)
     end
 end
 
-
 % ---- END OF MAIN LOOP ---- % 
 
 function [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(x, y, frame, first_threshold, second_threshold)
     
-    ball_hsv = rgb2hsv(frame(round(y),round(x), :));
-    h = ball_hsv(:,1)*360;
+    % for a better accuracy we average the color with its neighbour pixels
+    roiBallRect = calcRoiSize([x y],[size(frame,2), size(frame,1)], 5, 5);
+    roiBall = imcrop(frame, roiBallRect);
+    % Separate to RGB channel
+    Ir = roiBall(:,:,1);
+    Ig = roiBall(:,:,2);
+    Ib = roiBall(:,:,3);
     
-    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 50/100];
+    % Calculate average RGB of the region
+    Rave = round(double(mean(Ir(:))));
+    Gave = round(double(mean(Ig(:))));
+    Bave = round(double(mean(Ib(:))));
+  
+    ball_hsv = rgb2hsv([Rave/255,Gave/255, Bave/255]);
+    h = ball_hsv(:,1)*360;
+
+    
+    FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 70/100];
     FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
     % may be add a variable in the saturation as well 
-    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 40/100, 0/100];
+    SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 35/100, 50/100];
     SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
     
     % handle edges
@@ -282,7 +284,7 @@ function roiRect = calcRoiSize(position, frame_size, ROI_WIDTH, ROI_HEIGHT)
     roiRect = [x_min, y_min, x_max - x_min, y_max - y_min ];    
 end
 
-% still have to look the SMALLESTACCEPTABLEAREA issue 
+% still have to look the SMALLESTACCEPTABLEAREA issue
 function roiBinarized = thresholdImg(roiBlurred, BALL_COLOR_HSV_MIN, BALL_COLOR_HSV_MAX, CLOSING_KERNEL_LENGTH)
 
     roi_hsv = rgb2hsv(roiBlurred);
@@ -448,7 +450,7 @@ R = sqrt(Center*Center'+Mz+2*xnew);
 end    %    CircleFitByPratt
 
 
-function minError = twoStageBallDetection(roiBinarized, roiRect, positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER)
+function minError= twoStageBallDetection(roiBinarized, roiRect, positions, nextTs, BALL_SIZE, BALL_AREA, BALL_PERIMETER)
     % weights for the second stage equation 
     ww = 0.2;
     wa = 0.2;
@@ -488,7 +490,8 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
             
             Eruc = sumError/n;
             % fine tune the threshold
-            if (Eruc < 0.1 && R < 1.1*(BALL_SIZE/2) && roiBinarized(round(yc), round(xc)))
+            if (Eruc < 0.1 && R < 0.8*BALL_SIZE && (round(yc) > 0 && round(yc) < length(roiBinarized(:,1)) && ...
+                            round(xc) > 0 && round(xc) < length(roiBinarized(:,2)) && roiBinarized(round(yc), round(xc))))
                 RUC = true;
             else
                 
@@ -509,7 +512,8 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
 
                     Eruc = sumError/n;
 
-                    if (Eruc < 0.1 && R < 1.4*(BALL_SIZE/2) && roiBinarized(round(yc), round(xc)))
+                    if (Eruc < 0.1 && R < 0.8*BALL_SIZE && (round(yc) > 0 && round(yc) < length(roiBinarized(:,1)) && ...
+                            round(xc) > 0 && round(xc) < length(roiBinarized(:,2))&& roiBinarized(round(yc), round(xc))))
                         RUC = true;
                     else
                         RUC = false;
@@ -541,19 +545,19 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % --- MOTION --- %
                 % taking into account the last known ball location..
                 distC = pdist([centroid; positions(length(positions(:,1)), 1:2)], 'euclidean');
-                if (distC > 0.3 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
-                    % if the ball changed the x direction there is a big
-                    % suspicion, so max movement is even less
-%                      if((positions(length(positions(:,1)), 1) < positions(length(positions(:,1))-1, 1) && ...
-%                              centroid(:,1) > positions(length(positions(:,1)), 1)) || ... 
-%                              (positions(length(positions(:,1)), 1) > positions(length(positions(:,1))-1, 1) && ...
-%                              centroid(:,1) < positions(length(positions(:,1)), 1)))
-%                          if distC < 8 * BALL_SIZE      
-%                              mc = true;
-%                          end
-%                      else
-                        mc = true;
-%                     end
+                % the 0.2 could vary with the frameRate
+                if (distC > 0.1 * BALL_SIZE && distC < 12 * BALL_SIZE) % set this threshold!
+                     if((positions(length(positions(:,1)), 1) < positions(length(positions(:,1))-1, 1) && ...
+                             centroid(:,1) > positions(length(positions(:,1)), 1)) || ...
+                             positions(length(positions(:,1)), 1) > positions(length(positions(:,1))-1, 1) && ...
+                             centroid(:,1) < positions(length(positions(:,1)), 1))
+                         if distC < 5 * BALL_SIZE
+                             mc = true;
+                         end
+                     else
+                         mc = true;
+                     end
+                      mc = true;
                 end
                 
 %                 distP = pdist([prediction; positions(length(positions(:,1)), 1:2)], 'euclidean');
@@ -564,7 +568,7 @@ function minError = twoStageBallDetection(roiBinarized, roiRect, positions, next
                 % still don't have enough for a prediction, check only
                 % movement
                 distC = pdist([centroid; positions(1,1:2)], 'euclidean');
-                if distC > 0.3 * BALL_SIZE % set this threshold!
+                if distC > 0.2 * BALL_SIZE % set this threshold!
                     mc = true;
                 end
                 %let's give a free point
@@ -650,7 +654,7 @@ function [roiBinarized, BEST_FIRST_PASS_HSV_MIN, BEST_FIRST_PASS_HSV_MAX, best_t
             best_threshold = first_threshold;
         else
             % decrease the threshold
-            if (first_threshold < 12) 
+            if (first_threshold < 8) 
                 first_threshold = first_threshold * 1.1;
                 if strcmp(ballColor, 'o')
                     FIRST_PASS_HSV_MIN(1) = (h - first_threshold)/360;
@@ -743,7 +747,7 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
 
                     % increase the threshold
-                    if (it_threshold > 15)
+                    if (it_threshold > 10)
                         it_threshold = it_threshold*0.90;
 
                         if strcmp(ballColor, 'o')
@@ -801,7 +805,7 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
                     end
                     %if SECOND_PASS_HSV_MIN(2) < 0
                     %    SECOND_PASS_HSV_MIN(2) = 0;
-                    %end
+                    %ends
                     if(IT_HSV_MAX(1) > 1)
                         IT_HSV_MAX(1) = 1;
                     end
@@ -829,16 +833,6 @@ function [candidateBallsRoi, candidateBallsHSV] = secondPass(candidateBallsRoi, 
             end
         end
        
-%         if best_sec_pass > best_it(2)
-%             best_sec_pass = best_it(2);
-%             BEST_SEC_PASS_HSV_MAX = BEST_ITERATION_HSV_MAX;
-%             BEST_SEC_PASS_HSV_MIN = BEST_ITERATION_HSV_MIN;
-%             best_sec_threshold = best_iteration_threshold;
-%         elseif best_it(2) == Inf
-%             BEST_SEC_PASS_HSV_MAX = SECOND_PASS_HSV_MAX;
-%             BEST_SEC_PASS_HSV_MIN = SECOND_PASS_HSV_MIN;
-%             best_sec_threshold = second_threshold;
-%         end
          candidateBallsRoi{i} = candidateRoiBinarized;
         % EITHER KEEP BEST_IT OR THIS BELOW!! 
         if best_it(2) == inf
