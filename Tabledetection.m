@@ -3,10 +3,10 @@ clear;
 close all;
 
 %% Line Detection 
-I = imread('ping.png');
+I = imread('ping2.png');
 WIDTH = max(size(I));
 % 
-corners = table_detection(I);
+[lines, corners] = table_detection(I,1);
 
 %% AFFINE RECONSTRUCTION
 % Line Normalisation
@@ -29,6 +29,11 @@ lline1 = cross(c1, c4);
 lline2 = cross(c2, c3); 
 sline1 = cross(c1, c2); 
 sline2 = cross(c3, c4);
+
+lline1 = lline1/lline1(3); 
+lline2 = lline2/lline2(3); 
+sline1 = sline1/sline1(3); 
+sline2 = sline2/sline2(3); 
 
 N = diag([WIDTH, WIDTH, 1]);
 
@@ -83,7 +88,7 @@ C = [w(1), w(2), 0;
  
 [U, S, V] = svd(C);
 
-sqrt = diag([sqrt(S(1, 1)), sqrt(S(2, 2)), 1]) * U * diag([sqrt(S(1, 1)), sqrt(S(2, 2)), 1]);
+sqrt = U * diag([sqrt(S(1, 1)), sqrt(S(2, 2)), 1]);
 
 Hrecon = sqrt \ Hs;
 
