@@ -2,6 +2,7 @@
 
 %% Useful packages
 \usepackage{amsmath}
+\usepackage{mathtools}
 \usepackage{amssymb}
 \usepackage{graphicx}	
 \usepackage{algpseudocode}
@@ -12,6 +13,9 @@
 \usepackage{titlesec}
 \usepackage[section]{placeins}
 \usepackage{array}
+\usepackage{tabularx,ragged2e}
+\newcolumntype{C}{>{\Centering\arraybackslash\hsize=.7\hsize}X} % centered "X" column
+\newcolumntype{s}{>{\Centering\arraybackslash\hsize=.3\hsize}X}
 \newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
 
 \setlength\parindent{0pt}
@@ -76,7 +80,7 @@ Wong et. al.\cite{Wong} described an algorithm capable of tracking table tennis 
 \item \textbf{Time constraint:} latency from detecting to tracking the ball must be minimised.
 \end{itemize}
 
-In order to overcome these issues it is proposed a method that executes an object segmentation followed by a object evaluation algorithm. The object segmentation is composed by a two-pass thresholding (TPT) algorithm, capable of adapting the threshold according to context. The first pass highlights only elements of the frame with a highly similar color to the one of the ball, and the second thresholding relax the constraints in order to reconstruct the shape of the object. The output is a set of candidate balls to be further evaluated by the object evaluation algorithm. This second algorithm is also executed in two steps. In the first it is controlled if the individuated object displays an upper rounded contour, its location is consistent with the predicted location and if it exhibits motion both at its centre and in the predicted location. And in the second, from the set of objects that were able to pass the first step, one is chosen as the ball based on spatial geometric measurements (area, maximum width, maximum height, perimeter, roundness, and error on the rounded upper contour).
+In order to overcome these issues it is proposed a method that executes an object segmentation followed by a object evaluation algorithm. The object segmentation is composed by a two-pass thresholding (TPT) algorithm, capable of adapting the threshold according to context. The first pass highlights only elements of the frame with a highly similar color to the one of the ball, and the second thresholding relax the constraints in order to reconstruct the shape of the object. The output is a set of candidate balls to be further evaluated by the object evaluation algorithm. This second algorithm is also executed in two steps. In the first it is controlled if the individuated object displays a rounded upper  contour, its location is consistent with the predicted location and if it exhibits motion both at its centre and in the predicted location. And in the second, from the set of objects that were able to pass the first step, one is chosen as the ball based on spatial geometric measurements (area, maximum width, maximum height, perimeter, roundness, and error on the rounded upper contour).
 
 These elements are going to be further discussed in the document as they were applied in the project. 
 
@@ -88,7 +92,8 @@ These elements are going to be further discussed in the document as they were ap
 The proposed solution is divided in table tennis detection, camera calibration, ball tracking, 2D trajectory estimation, camera synchronization and 3D trajectory estimation. 
 
 \subsection{Setup Phase}
-	selection of the ball...
+	selection of the ball... first position and color discovery
+	table..?
 
 \subsection{Table detection}
 
@@ -124,90 +129,113 @@ After detecting the lines on the edge of the table we need to cluster them using
 
 Because of the distortion caused by the wide angle lens, the lines detection algorithm sometimes return many lines for one table edge.
 
-we have multiple lines per edge =>  weighted average grouping
+we have multiple lines per edge $\Rightarrow$  weighted average grouping
 
-then grouping => calculate intersects and then finished
+then grouping $\Rightarrow$ calculate intersects and then finished
 
 \subsection{Camera Calibration}
 \subsection{Ball Tracking}
 
-The ball tracking is done using Wong et. al.\cite{Wong} algorithm. The candidate objects are individuated in an object segmentation phase (two-pass-thresholding algorithm) and then selected based on an object evaluation step (ball selection algorithm). 
+The ball tracking is done using Wong et. al.\cite{Wong} algorithm. The candidate balls are individuated in an object segmentation phase and then selected based on an object evaluation algorithm. The object segmentation phase is subdivided in the two-pass thresholding, automatic tuning of the thresholds, adaptive control of the Region of interest (ROI). While the object evaluation is composed of an eliminatory step, to discard all the candidates that do not have the minimum requisites to be considered the ball, and a classificatory one, to choose the best possible among the final set of candidates.
 
-\subsubsection{Object Segmentation}
+\subsubsection{Two-Pass Thresholding}
 
-The objective is to segment candidate balls from the other elements in the frame. Candidate balls are objects that exhibit similar properties to the object of interest (OOI). To perform this segmentation it is implemented a color thresholding algorithm. The basic idea is to create a binary differential image where pixels with a color similar to the one of the ball are turned white while other are turned black, the neighbouring white pixels are then merge together to form an object. However, to increase precision this is divided in two passes. In the first, a coarse threshold is applied so only pixels with a sufficiently similar color to the ball are filtered, the pixels are then grouped as described above. This first thresholding operation is expected to produce a distorted object, since the coarse threshold may cause small color variations due to lighting or movement to be ignored. In this matter, the second pass is applied only on the regions where candidate balls have been found and with a more relaxed threshold, allowing to recompose the original shape of the object without considering obviously wrong candidates. 
+The objective is to segment \textit{candidate balls} from the other elements in the frame. \textit{Candidate balls} are objects that exhibit similar properties to the Object of Interest (OOI). To perform this segmentation it is implemented a color thresholding algorithm. The basic idea is to create a binary differential image where pixels with a color similar to the one of the ball are turned white while others are turned black, then the neighbouring white pixels are merged together to form an object. However, simple thresholding tends to be sensible to variations in color due to lighting or movement. Therefore, to increase precision this is divided in two passes. In the first, a coarse threshold is applied and only pixels with a sufficiently similar color to the ball are filtered and grouped according to the process described above. The coarse threshold only individuates candidates that have a high probability of being the ball, but is also expected to produce a distorted object. In this matter, the second pass is applied only on the regions where \textit{candidate balls} have been found and with a more relaxed threshold. This allows the recovery of the original shape of the object, while still excluding the majority of false positives. 
 
-Configuring the TPT thresholds is not an easy task, as it may widely varies depending on the specific conditions of the input video. Hence, it is implemented an automatic tuning of the TPT threshold. This can be done using a known reference location for the ball, selected in the setup phase described before.
+\subsubsection{Automatic Tuning of the Two-Pass Thresholding}
+As it can be noticed, the method is highly dependent on the configuration of the TPT thresholds. They may vary depending on the specific environment conditions in which the video was recorded, and even in between the video frames. Hence, to increase the generalisability of the algorithm, it is implemented an automatic tuning of the TPT threshold. 
+The automatic tuning leverages on the reference location for the ball selected in the set-up phase by defining a region of interest (ROI) around the last known position of the ball. In the ROI it is applied the first pass thresholding. If zero \textit{candidate balls} are found the threshold is decreased, while if it is found more than one, it is increased. The first pass is repeated either until the maximum number of iterations is reached or only one candidate is left. In the event that no candidate was found, the current frame is discarded and the adaptive control of the ROI is triggered. However, if there is at least one candidate the second pass is executed. The second pass is similar to the first, but instead of comparing the number of OOI found, it is controlled their area. As before, if the area is greater than the acceptable percentage difference from the known ball area, the threshold is increased. In the opposite event, it is decreased. When the maximum number of iterations is reached or the percentage difference is within the acceptable difference, the current threshold is selected as optimum and the ball selection algorithm is triggered. 
+
+\subsubsection{Adaptive Control of the Region of Interest}
+The table tennis ball occupies only about 0.06\% of the frame. Hence, searching the entire frame is not only computationally expensive but also is counter-productive as it is increases the possibility of false positives. To solve this issue only the part of the frame that is likely to contain the ball is examined. Wong et. al.\cite{Wong} suggest the use of interpolation based on at least the two last known ball locations to determine where is the probable next ball position and set it as the centre of the ROI. We, however, choose to derogate from this approach. 
+In our approach, the adaptive control of the ROI is based only on the of the previous search successes. I.e. if the ball was found in the previous frame, it is set as a small square of \textit{m} times the diameter of the ball. For each frame the ball is not detected, the size of the ROI is increased by a constant factor \textit{k}, until the limit of the frame size.
+
+\subsubsection{Object Evaluation}
+The object segmentation phase individuates a set of candidates that have a similar color to the ball and reconstructs their shape. Each of these \textit{candidate balls} is analysed in a two stage evaluation. The first is eliminatory and checks if it has \textit{rounded upper contour} (RUC), if the location is consistent with the predicted location (T) and if it exhibits motion at its centre (M). The parameters RUC, T, M are formally defined in the table \ref{table:first}.
+
+\begin{table}[!ht]
+\begin{tabularx}{\textwidth}{|s|C|}
+\hline
+	\textit{Rounded Upper Contour} (RUC) & 
+	$ RUC= \begin{cases}
+      1, &\text{if } E_{RUC} < t_{RUC} \\
+      0, & \text{if } E_{RUC} \geq t_{RUC}
+    \end{cases} $ 
+    where $t_{RUC}$ is a preset threshold and $E_{RUC}$ is an objective (error) function defined as: 
+$ E_{RUC} = \dfrac{\sum{|\dfrac{d_{i}-r}{r}|}}{N} $ and $d_{i} = \sqrt{(x_{i} - x_{c})^2 + (y_{i} - y_{c})^2} $ where $(x_{i}y_{i})$ is a pixel in the upper contour, $i$ the pixel index, $N$ the number of pixels, $r$ the radius and $(x_{c},y_{c})$ the centre obtained by solving the equation of a circle for $(x_{i},y_{i})$.  \\ \hline
+	\textit{Position} (T) & 
+	$ T= \begin{cases}
+      1, &\text{if } L_{diff} < t_{T} \\
+      0, & \text{if } L_{diff} \geq t_{T}
+    \end{cases} $ 
+    Where $L_{diff}$ is the Euclidean distance between the OOI actual and predicted positions and  $t_{T}$ is a threshold. The predicted location is the linear extrapolation of OOI locations in previous frames. \\ \hline
+    \textit{Motion} (M) & 
+	$ M= \begin{cases}
+      1, &\text{if } OC_{diff} < t_{M} \\
+      0, & \text{if } OC_{diff} \geq t_{M}
+    \end{cases} $ 
+    Where $OC_{diff}$ is the Euclidean distance between the candidate ball and the OOI in the previous frame and  $t_{M}$ is a threshold. \\ \hline
+\end{tabularx}
+\caption{First Stage Evaluation}
+\label{table:first}
+\end{table}
+
+Those that were able to fulfill at least two of the above criteria are kept while the other \textit{candidate balls} are discarded. In the second stage, it is evaluated which of the remaining objects has the best fit according to a set of spatial geometric measurements, which are area (A), maximum width (W), maximum height (H), perimeter (P), roundness (R), and error on the rounded upper contour $E_{RUC}$. The definition of the parameters can be found in the table \ref{table:second} and are combined in an error function $E$, calculated as:
+
+\begin{equation}\resizebox{.9\hsize}{!}{
+$E = \dfrac{E_{RUC} + w_{A}\dfrac{|{A_{c}-A_{b}}|}{A_{b}} + w_{W}\dfrac{|{W_{c}-W_{b}}|}{W_{b}} + w_{H}\dfrac{|{H_{c}-H_{b}}|}{H_{b}} + w_{P}\dfrac{|{P_{c}-P_{b}}|}{P_{b}} + w_{R}\dfrac{|{R_{c}-R_{b}}|}{R_{b}}}{(n_{p}+1)n_{c}}$
+}
+\end{equation}
  
-\begin{itemize}
-	\item 
+where $w$ are the weightings, $n_{p}$ is the number of spatial parameters, $n_{c}$ is the number of conditions a \textit{candidate ball} satisfied in the stage 1 test. The $X_{c}$ and $X_{b}$ are the spatial parameters of the \textit{candidate ball} and OOI respectively. 
+ 
+\begin{table}[!ht]
+\begin{tabularx}{\textwidth}{|s|C|}
+\hline
+	\textit{Area} (A) & 
+	Number of pixels in the object.  \\ \hline
+	\textit{Maximum width} (W) & 
+	Horizontal distance between left and rightmost pixels of the object. \\ \hline
+    \textit{Maximum height} (H) & 
+	Vertical distance between top and bottom most pixels of the object. \\ \hline
+	\textit{Perimeter} (P) & 
+	Length of object boundary \\ \hline
+	\textit{Roundness} (R) & 
+	Given by:
+	$ R = \dfrac{4 \Pi A}{P^2} $ \\ \hline
+\end{tabularx}
+\caption{Second Stage Evaluation}
+\label{table:second}
+\end{table} 
+ 
+The \textit{candidate ball} with the smallest error $E$ is selected as OOI. 
+ 
+%\begin{itemize}
+%	\item In the first iteration, set the region of interest (ROI) for the current frame %for \textit{m} times the ball diameter. Where in the subsequent frames \textit{m} is %dynamically defined according to if the ball previously.
+%	\item if multiple candidate balls are produced in \textit{Pass 1}, the threshold is increased by \textit{u}\% for the next iteration and continue \textit{Pass 1}.
+%	\item if no \textit{candidate balls} are produced in \textit{Pass 1}, the threshold is decreased by \textit{u}\% for the next iteration and continue \textit{Pass 1}.
+%	\item if only one object remains, keep the threshold and go to \textit{Pass 2}.
+%	\item If the maximum \textit{Pass 1} iterations is reached, and no suitable threshold is found, select the threshold that produced the minimum number of \textit{candidate balls} \textit{and go to \textit{Pass 2}.
+%	\item cal are difference... .
+%\end{itemize}}
 
-\end{itemize}
 
 \subsection{2D Trajectory Estimation}
+The above process is repeated for every frame of the video, resulting in a sequence of ball positions in time. From this is possible to reconstruct the trajectory of the ball according to the single cameras. 
+As a possible excess of caution, first an outlier removal process is done using the Hampel identifier. The Hampel filter calculates the median of the window composed by the six surrounding positions, three per side. Then it estimates the standard deviation of each sample with its window median, and replaces it with the median if it is more than three standard deviations. 
+From the derived set of positions, it is applied a cubic-Spline interpolation to reconstruct the curve. This method allows to estimate successfully even the points in which the ball was out of the frame.  
+
 \subsection{Camera Synchronization}
+To synchronize the camera we use as reference time instants of the bounces of the ball. From the estimation of these instants it is possible to calculate the \textit{delta} between both cameras and correct it. The result is a set of equivalent points in time. 
+To estimate the bounce instants, it is observed the changes in the vertical axis for a window of six positions. If it is found that there are three consecutive downward movements followed by three upward, it is checked that there is no change in the vertical axis in the same period (preventing from considering players striking from down to up). From this is recognized a pair frames in which a bounce has occured. The exact moment of the bounce is estimated with the cubice-Spline interpolation.
+With the bounces time estimation, it is calculated which are the possible matches in the cameras. This is done by the comparison of the time difference for bounces in the first camera with the ones in the second. In case of doubt it is also considered the interval between two bounces at the same camera and compared with the multiple possibilities in the second camera.  
+
 \subsection{3D trajectory Estimation}
 
 \section{Algorithm}
 \section{Experimental Results}
 \section{Conclusions}
 
-\bibliographystyle{ieeetr}% Select the citation style e.g. ieeetr
-\bibliography{references}% write the directory to the .bib fil
-
-This section records all revisions to the Document.
-\newline \newline
-\begin{tabular}{ | c | c | c | c | }
-\hline
-	Version & Date & Authors & Summary \\ \hline
-	1.1 & 15/01/16 & Domenico Favaro, Caio Zuliani, Matheus Fim & Initial Release  \\ \hline
-	1.2 & 17/01/16 & Domenico Favaro, Caio Zuliani, Matheus Fim & Second Release  \\ \hline
-\end{tabular}
-
-\subsection{Purpose and Scope}
-The Integration Test Plan Document (ITPD) serves to present the integration sequence and testing for all Subsystems and Components that conform PowerEnjoy Car Sharing Service. This is a key part to guarantee the functioning and quality of the software. The Document will present the division of the System in Subsystems and Components that will endure individual testing as independent modules and then be subject to integration on the whole System.
-
-\subsection{Definitions and Abbreviations}
-\begin{itemize}
-\item \textbf{RASD:} Reqirements And Specifications Document.
-\item \textbf{DD:} Design Document.
-\item \textbf{ITPD:} Integration Test Plan Document.
-\item \textbf{SDK:} Software Development Kit
-\item \textbf{App:} Application, refering to Web or Mobile App.
-\item \textbf{Subsystem:} Part of the system the generally encapsulates one or more features.
-\item \textbf{Component:} Self sustained part of the System that provides with functionalities and is part of one or more subsystems.
-\item \textbf{Bottom-up:} Referring to Bottom-up testing. Each component at lower hierarchy is tested individually and then the components that rely upon these components are tested.
-\item \textbf{Top-down:} Top-down integration testing is an integration testing technique used in order to mock or simulate the behaviour of the lower-level modules that are not yet integrated.
-\item \textbf{Mock:} Simulation that mimic the behavior of certain objects and fucntions in controlled ways, done to test the behavior of some other object.
-\end{itemize}
-For other concepts concerning the Service definition look in the \textbf{Glossary} section of the RASD and DD.
-
-\subsection{Reference Documents}
-\begin{itemize}
-\item Specification Document: Assignments AA 2016-2017.pdf
-\item PowerEnjoy Requirements And Specifications Document (RASD)
-\item PowerEnjoy Design Document (DD)
-\item Example Document - Integration testing example document.pdf
-\item Testing Tools Documentation:
-\begin{itemize}
-\item[-] JUnit User Guide - \url{http://junit.org/junit5/docs/current/user-guide/}
-\item[-] Arquilian Guides - \url{http://arquillian.org/guides/}
-\item[-] JMeter User Manual - \url{http://jmeter.apache.org/usermanual/}
-\end{itemize}
-\end{itemize}
-
-
-\newpage
-\section{Integration Strategy}
-\subsection{Entry Criteria}
-We define the criteria that must be met before integration testing of the system components. We consider Integration a part of the production development. In order for production to start all documentation must first be written and up to date, including RASD and DD, to have a clear and full scope of the system components functionalities and importance. Once in production, the integration of a singe component can be done when the following criteria is met:
-\begin{itemize}
-\item The Component feature must be 100\% complete, that is all classes and functions must have been implemented.
-\item No tickets must be opened for the Component, no bugs or cosidered missing features must be present.
-\item Individual component testing must have been performed, using JUnit to test its classes and functions.
-\item All the interfaces the Component has to communicate to have to be present or at least mocked to be able to test its coupling.
-\end{itemize}
-  
 
 
 \end{document}
