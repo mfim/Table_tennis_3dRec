@@ -1,4 +1,4 @@
-function corners = table_detection(I)
+function [allLines, corners] = table_detection(I, plotInter)
 %TABLE_DETECTION Detects the corners of the table from Image
 
 [HEIGHT, WIDTH, DIM] = size(I);
@@ -20,7 +20,7 @@ P  = houghpeaks(H,20,'threshold',ceil(0.2*max(H(:))));
 x = T(P(:,2)); 
 y = R(P(:,1));
 
-plotInter = 1; 
+% plotInter = 1; 
 
 % Find lines and plot them
 lines = houghlines(BW,T,R,P,'FillGap',150,'MinLength', 300);
