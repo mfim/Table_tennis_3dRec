@@ -233,6 +233,41 @@ With the bounces time estimation, it is calculated which are the possible matche
 \subsection{3D trajectory Estimation}
 
 \section{Algorithm}
+\textbf{Ball tracking:}
+\begin{algorithmic}
+\While {Video has frame}
+\State {$frame \gets Read(video.frame)$}
+\If {First Frame}
+    \State $ positions \gets$ User input initial ball position
+    \State $ Thresholds \gets$ Define initial color thresholds
+    \State $ ROI \gets$ Crop ROI based on frame and position
+    \State $frame \gets Read(video.frame)$
+\ElsIf {Ball Found Before}
+		\State $ROI \gets$ Crop ROI based on previous found position
+\Else
+\Comment{In case the position was not found previously}
+	\State Adaptive Control ROI
+\EndIf
+\State Blurr ROI
+\State First Pass (Coarse Threshold)
+\If {$Candidate Balls$ found}
+	\For {Each $candidate Ball$}
+		\State $ROISecondPass \gets$  $ROISecondPass$ + Calculate ROI
+	\EndFor
+\State Second Pass (Relaxed Threshold) on $ROISecondPass$
+\State $Objects \gets$ Object Evaluation 
+\State Choose $Object$ with smallest error from $Objects$
+\EndIf
+\EndWhile
+\State Calculate 2D Trajectory
+\end{algorithmic}
+
+\textbf{First Pass:}
+\textbf{Second Pass:}
+\textbf{Object Evaluation:}
+\textbf{2D Trajectory:}
+\textbf{}
+
 \section{Experimental Results}
 \section{Conclusions}
 
