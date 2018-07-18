@@ -90,10 +90,9 @@ These elements are going to be further discussed in the document as they were ap
 \section{Solution}
 
 The proposed solution is divided in table tennis detection, camera calibration, ball tracking, 2D trajectory estimation, camera synchronization and 3D trajectory estimation. 
+\subsection{Set-up Phase}
 
-\subsection{Setup Phase}
-	selection of the ball... first position and color discovery
-	table..?
+	In the set-up phase the user selects the initial position of the ball and its diameter. The initial position allows the algorithm to understand which is the object to be tracked in case of multiple candidate objects in the scene and also allows the fine tuning of the color of the ball, done by averaging on the neighbouring pixels color. The diameter serves to define many of the constraints used in the algorithm, such as the area related constraints for detecting the ball, the size of the Region of Interest, the kernel for blurring the frame and thus smoothing the edges of objects. 
 
 \subsection{Table detection}
 
@@ -138,9 +137,104 @@ then grouping $\Rightarrow$ calculate intersects and then finished
 
 The ball tracking is done using Wong et. al.\cite{Wong} algorithm. The candidate balls are individuated in an object segmentation phase and then selected based on an object evaluation algorithm. The object segmentation phase is subdivided in the two-pass thresholding, automatic tuning of the thresholds, adaptive control of the Region of interest (ROI). While the object evaluation is composed of an eliminatory step, to discard all the candidates that do not have the minimum requisites to be considered the ball, and a classificatory one, to choose the best possible among the final set of candidates.
 
+The pseudocode of the ball tracking algorithm is as follows:
+\begin{algorithm}[H]
+\caption{Ball Tracking Algorithm}
+\begin{algorithmic}
+\While {Video has frame}
+\State {$frame \gets$ Read video frame}
+\If {First Frame}
+    \State $ Positions \gets$ User input initial ball position
+    \State $ Thresholds \gets$ Define initial color thresholds
+    \State $ ROI \gets$ Crop ROI based on frame and initial position
+    \State $ Frame \gets$ Read video frame
+\ElsIf {Ball found before}
+		\State $ROI \gets$ Crop ROI based on previous found position
+\Else\Comment{In case the position was not found previously}
+	\State $ ROI \gets$ Adaptive control of the ROI
+\EndIf
+\State $ ROI \gets$ Blurr ROI \Comment{To smooth the edges we apply a blurring filter in the ROI}
+\State $ Candidate Balls \gets$ First Pass(ROI) \Comment{First pass has a coarse threshold}
+\If {$Candidate Balls$ were found}
+	\For {each $Candidate Ball$}
+		\State $ROI \gets$ Add the ROI of the $CandidateBall$ 
+	\EndFor
+\State $Candidate Balls$ Second Pass(ROI) \Comment{Second pass has a relaxed threshold}
+\State $Objects \gets$ Object Evaluation 
+\State $Positions \gets$ Add $Object$ with smallest error from $Objects$
+\EndIf
+\EndWhile
+\State $Trajectory \gets$ Calculate 2D Trajectory
+\end{algorithmic}
+\end{algorithm}
+
+
 \subsubsection{Two-Pass Thresholding}
 
 The objective is to segment \textit{candidate balls} from the other elements in the frame. \textit{Candidate balls} are objects that exhibit similar properties to the Object of Interest (OOI). To perform this segmentation it is implemented a color thresholding algorithm. The basic idea is to create a binary differential image where pixels with a color similar to the one of the ball are turned white while others are turned black, then the neighbouring white pixels are merged together to form an object. However, simple thresholding tends to be sensible to variations in color due to lighting or movement. Therefore, to increase precision this is divided in two passes. In the first, a coarse threshold is applied and only pixels with a sufficiently similar color to the ball are filtered and grouped according to the process described above. The coarse threshold only individuates candidates that have a high probability of being the ball, but is also expected to produce a distorted object. In this matter, the second pass is applied only on the regions where \textit{candidate balls} have been found and with a more relaxed threshold. This allows the recovery of the original shape of the object, while still excluding the majority of false positives. 
+
+Below it is possible to obseve the pseudocode for the \textbf{First Pass:}
+\begin{algorithm}[H]
+\caption{First Pass Thresholding}
+\begin{algorithmic}
+\While {$CandidateBall$ not found AND  $i<MaxIterations$}
+\State {$BinaryROI \gets$ Color threshold the ROI} \Comment{returns a binary image with the white pixels representing the color of the ball}
+\If {Only one object is found in the $BinaryROI$} 
+    \State $ CandidateBall \gets$ set as found
+    \State $ BestFirstThreshold \gets$ set current thresholds as best
+\ElsIf {More then one object found in the $BinaryROI$}
+		\If{Less objects were found than in the previous iteration}
+		 	\State $BestNumberOfObjects \gets NumberOfObjects$
+			\State $ BestFirstThreshold \gets$ set current thresholds as best		
+		\EndIf
+		\State $FirstThreshold \gets$ Increase the Threshold
+\Else
+	\State $FirstThreshold \gets$ Decrease the Threshold
+\EndIf
+\State $i \gets$ increase the iteration number
+\EndWhile
+\State {$FirstThreshold \gets BestFirstThreshold$}
+\State {\textbf{return} FirstThreshold, BinaryROI}
+\end{algorithmic}
+\end{algorithm}
+
+
+And for the \textbf{Second Pass:}
+\begin{algorithm}[H]
+\caption{Second Pass Thresholding}
+\begin{algorithmic}
+\For{each ROI}
+\State{$SecondThreshold \gets$ restore initial thresholds} \Comment{Each ROI cannot be affected by the other, so they all start with the same thresholds}
+\While {$ObjectArea$ not OK AND  $i<MaxIterations$}
+\State {$BinaryROI \gets$ Color threshold the ROI}
+\For{each of the objects in the $BinaryROI$}
+	\State{$Error \gets$ Calculate the percentage error between the areas of the object and the ball }
+	\If{$Error$ is within threshold}
+		\State{$ObjectArea \gets$ OK}
+		\State $ BestSecondThreshold \gets$ set current threshold
+	\ElsIf{Object area is greater than the ball area}
+		\If{smallest percentage error so far}
+		 	\State $BestPercentageError \gets Error$
+			\State $ BestSecondThreshold \gets$ set current threshold		
+		\EndIf	
+		\State $SecondThreshold \gets$ Increase the Threshold
+	\Else 
+		\If{smallest percentage error so far}
+		 	\State $BestPercentageError \gets Error$
+			\State $ BestSecondThreshold \gets$ set current threshold		
+		\EndIf
+		\State $SecondThreshold \gets$ Decrease the Threshold
+	\EndIf
+\EndFor
+\State $i \gets$ increase the iteration number
+\EndWhile
+\State {$BinaryROI \gets$ recalculates the best ROI found}
+\State {$Binaries \gets$ Add the best $BinaryROI$ of each object}
+\State {$Thresholds \gets$ Add the best $BestSecondThreshold$ of each object}
+\EndFor
+\State {\textbf{return} Threshold, Binaries}
+\end{algorithmic}
+\end{algorithm}
 
 \subsubsection{Automatic Tuning of the Two-Pass Thresholding}
 As it can be noticed, the method is highly dependent on the configuration of the TPT thresholds. They may vary depending on the specific environment conditions in which the video was recorded, and even in between the video frames. Hence, to increase the generalisability of the algorithm, it is implemented an automatic tuning of the TPT threshold. 
@@ -209,16 +303,32 @@ where $w$ are the weightings, $n_{p}$ is the number of spatial parameters, $n_{c
 \end{table} 
  
 The \textit{candidate ball} with the smallest error $E$ is selected as OOI. 
- 
-%\begin{itemize}
-%	\item In the first iteration, set the region of interest (ROI) for the current frame %for \textit{m} times the ball diameter. Where in the subsequent frames \textit{m} is %dynamically defined according to if the ball previously.
-%	\item if multiple candidate balls are produced in \textit{Pass 1}, the threshold is increased by \textit{u}\% for the next iteration and continue \textit{Pass 1}.
-%	\item if no \textit{candidate balls} are produced in \textit{Pass 1}, the threshold is decreased by \textit{u}\% for the next iteration and continue \textit{Pass 1}.
-%	\item if only one object remains, keep the threshold and go to \textit{Pass 2}.
-%	\item If the maximum \textit{Pass 1} iterations is reached, and no suitable threshold is found, select the threshold that produced the minimum number of \textit{candidate balls} \textit{and go to \textit{Pass 2}.
-%	\item cal are difference... .
-%\end{itemize}}
 
+To better exemplify the above algorithm, below it is possible to observe the pseudocode:
+\begin{algorithm}[H]
+\caption{Object Evaluation}
+\begin{algorithmic}
+\For {each Object} \Comment{Start with the first stage}
+\State {$RUC \gets$ True if it has Rounded Upper Contour} \Comment{according to described formula in table 2}
+\If{More than one position of the ball in previous frames is available} 
+	\State{$Predict \gets$ Linear extrapolate the next ball location}
+	\State{$T \gets$ True if Object is within a maximum distance from prediction}
+	\State{$M \gets$ True if candidate show a minimum movement from last known position}
+\Else \Comment{no prediction is made}
+	\State{$M \gets$ True if candidate show a minimum movement from last known }
+\EndIf
+\If{more than one condition is true} \Comment{Second stage}
+	\State{Calculate spatial geometric constants}
+	\State{$Error \gets$ calculate the error as described in formula 1}
+	\If{$Error$ is smaller current $Minimum Error$}
+		\State{$OOI \gets Object$}
+		\State{$MinimumError \gets Error$}
+	\EndIf
+\EndIf
+\EndFor
+
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{2D Trajectory Estimation}
 The above process is repeated for every frame of the video, resulting in a sequence of ball positions in time. From this is possible to reconstruct the trajectory of the ball according to the single cameras. 
@@ -232,41 +342,6 @@ With the bounces time estimation, it is calculated which are the possible matche
 
 \subsection{3D trajectory Estimation}
 
-\section{Algorithm}
-\textbf{Ball tracking:}
-\begin{algorithmic}
-\While {Video has frame}
-\State {$frame \gets Read(video.frame)$}
-\If {First Frame}
-    \State $ positions \gets$ User input initial ball position
-    \State $ Thresholds \gets$ Define initial color thresholds
-    \State $ ROI \gets$ Crop ROI based on frame and position
-    \State $frame \gets Read(video.frame)$
-\ElsIf {Ball Found Before}
-		\State $ROI \gets$ Crop ROI based on previous found position
-\Else
-\Comment{In case the position was not found previously}
-	\State Adaptive Control ROI
-\EndIf
-\State Blurr ROI
-\State First Pass (Coarse Threshold)
-\If {$Candidate Balls$ found}
-	\For {Each $candidate Ball$}
-		\State $ROISecondPass \gets$  $ROISecondPass$ + Calculate ROI
-	\EndFor
-\State Second Pass (Relaxed Threshold) on $ROISecondPass$
-\State $Objects \gets$ Object Evaluation 
-\State Choose $Object$ with smallest error from $Objects$
-\EndIf
-\EndWhile
-\State Calculate 2D Trajectory
-\end{algorithmic}
-
-\textbf{First Pass:}
-\textbf{Second Pass:}
-\textbf{Object Evaluation:}
-\textbf{2D Trajectory:}
-\textbf{}
 
 \section{Experimental Results}
 \section{Conclusions}
