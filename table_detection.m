@@ -35,10 +35,6 @@ BLUE_MAX = 270;
 BLUE_MIN = 200;
 VLIGHT_MIN = 20;
 
-% Not used anymore
-MIN_AREA = 1e+4; 
-MAX_AREA = 2*1e+4; 
-
 for k = 1:length(lines)
  
   a = lines(k).point1; 

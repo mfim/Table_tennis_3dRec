@@ -9,13 +9,11 @@ WIDTH = max(size(I));
 
 % ping;
 
-for k = 1:length(lines)
- 
+for k = 1:length(lines) 
   a = lines(k).point1; 
   b = lines(k).point2;
   plot([a(1), b(1)], [a(2), b(2)],'LineWidth',2,'Color', 'black');
   text(b(1), b(2), num2str(k), 'Color', 'red');  
-  
 end 
 
 % Middle Lines
@@ -85,8 +83,6 @@ w = X\t;
 C = [w(1), w(2), 0;
      w(2),    1, 0;
      0,       0, 0];
- 
-% https://stackoverflow.com/questions/12449695/metric-rectification-using-the-dual-degenerate-conic-in-matlab
  
 [U, S, V] = svd(C);
 
