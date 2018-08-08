@@ -3,7 +3,7 @@ clear;
 close all;
 
 %% Line Detection 
-I = imread('ping2.png');
+I = imread('ping.png');
 WIDTH = max(size(I));
 % 
 [lines, corners] = table_detection(I,1);
@@ -99,10 +99,12 @@ title('Shape reconstruction');
 
 cc1 = c1 / Hrecon;
 cc2 = c2 / Hrecon; 
+cc3 = c3 / Hrecon; 
 cc4 = c4 / Hrecon; 
 
 cc1 = cc1 / cc1(3); 
 cc2 = cc2 / cc2(3);
+cc3 = cc3 / cc3(3);
 cc4 = cc4 / cc4(3);
 
 long = norm(cc1(1:2) - cc4(1:2), 2); 
@@ -114,6 +116,9 @@ if ratio > 1
     ratio = 1/ratio
 end
 
+true_ratio = 152.5 / 274; 
+
+delta = true_ratio - ratio; 
 
 
 
