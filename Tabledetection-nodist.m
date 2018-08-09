@@ -23,16 +23,16 @@ rd = [1656, 760, 1];
 % Drawing
 figure, imshow(I), hold on;
 
-text(lu(1),lu(2),'lu', 'Color', 'red');
-text(ld(1),ld(2),'ld', 'Color', 'red');
-text(ru(1),ru(2),'ru', 'Color', 'red');
-text(rd(1),rd(2),'rd', 'Color', 'red');
+    text(lu(1),lu(2),'lu', 'Color', 'red');
+    text(ld(1),ld(2),'ld', 'Color', 'red');
+    text(ru(1),ru(2),'ru', 'Color', 'red');
+    text(rd(1),rd(2),'rd', 'Color', 'red');
 
-text(md(1),md(2),'md', 'Color', 'red');
-text(mu(1),mu(2),'mu', 'Color', 'red');
+    text(md(1),md(2),'md', 'Color', 'red');
+    text(mu(1),mu(2),'mu', 'Color', 'red');
 
-text(rm(1),rm(2),'rm', 'Color', 'red');
-text(lm(1),lm(2),'lm', 'Color', 'red');
+    text(rm(1),rm(2),'rm', 'Color', 'red');
+    text(lm(1),lm(2),'lm', 'Color', 'red');
 
 drawline(ld, lu, 'red');
 drawline(rd, ru, 'red');

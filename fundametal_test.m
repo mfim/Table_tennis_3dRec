@@ -1,8 +1,10 @@
 
-I1 = rgb2gray(imread('Video/I11.jpg'));
-I2 = rgb2gray(imread('Video/I12.jpg'));
+I1 = rgb2gray(imread('Images/j4.jpg'));
+I2 = rgb2gray(imread('Images/j5.jpg'));
 
-trsh = 1200; 
+trsh = 1200;
+
+imshow([I1,I2]);
 
 points1 = detectSURFFeatures(I1, 'MetricThreshold', trsh);
 points2 = detectSURFFeatures(I2, 'MetricThreshold', trsh);

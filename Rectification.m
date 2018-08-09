@@ -1,3 +1,8 @@
+
+%% Difficult way to find the homography 
+% doesn't take advantage of the fact that we know the size of the table
+
+
 @clc;
 clear;
 close all;
