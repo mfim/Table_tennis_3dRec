@@ -4,7 +4,7 @@
 \usepackage{amsmath}
 \usepackage{mathtools}
 \usepackage{amssymb}
-\usepackage{graphicx}	
+\usepackage{graphicx}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
 \usepackage[colorinlistoftodos]{todonotes}
@@ -44,7 +44,7 @@
 Authors:
 \begin{itemize}
 	\item Matheus FIM (Mat. 876069)
-    \item Reda AISSAOUI (Mat. xxxxxx)
+    \item Reda AISSAOUI (Mat. 87388)
 
 \end{itemize}
 \raggedleft
@@ -55,44 +55,44 @@ Prof. Vincenzo CAGLIOTI
 
 \tableofcontents
 \newpage
- 
+
 \section{Problem Formulation}
 
 Table tennis is a demanding sport where the referees have to pay attention at a complex set of rules at all moments. For this reason, much can be obtained from having in-place a system capable of reconstructing the 3D trajectory of the ball during the course of a point. For instance, eventually unclear plays can be decided correctly or even coaches can better analyse the players performance. However this is not a simple task. Many of the techniques applied to other sports cannot be used for this context, as the table tennis ball can be hard to detect due to its reduced dimension and also cannot be relied to follow a parabolic trajectory as its small mass causes it to be heavily affected by the air resistance.
 
 The proposed system takes as input real matches video sequences and is able to overcome a wide variety of problems, such as high object motion, blurring, uneven lighting, background merging, object confusion and occlusion. Thus generating as output an estimation of the 3D trajectory of the ball. The algorithm relies on videos recorded by two non synchronized RGB  cameras and uses this information to detect the table, calibrate the cameras, track the ball in between frames, synchronize the cameras and finally combine the single trajectories for the production of the 3D trajectory.
 
-The Experiments were conducted on 60fps and 120fps video samples recorded with GOPRO cameras in an indoor environment and produced satisfactory results. In all tests the trajectory was estimated with suitable accuracy, whereas the most satisfying results were experienced in the higher fps videos. Also, the adaptive "region of interest" allowed to reduce both the time of execution of the algorithm and the incidence of false positives. 
-   
-  
+The Experiments were conducted on 60fps and 120fps video samples recorded with GOPRO cameras in an indoor environment and produced satisfactory results. In all tests the trajectory was estimated with suitable accuracy, whereas the most satisfying results were experienced in the higher fps videos. Also, the adaptive "region of interest" allowed to reduce both the time of execution of the algorithm and the incidence of false positives.
+
+
 \section{State of the Art}
 
 Wong et. al.\cite{Wong} described an algorithm capable of tracking table tennis balls in services and stated the accuracy was high enough for umpiring applications. Their work handled the following problems:
 
 \begin{itemize}
 \item \textbf{High object motion:} The high speed of the ball may cause it to be blurred, colour faded and distorted in shaped.
-\item \textbf{Multiple moving objects:} Apart from the ball, the players, the rackets and background elements in the scene exhibit motion.  
+\item \textbf{Multiple moving objects:} Apart from the ball, the players, the rackets and background elements in the scene exhibit motion.
 \item \textbf{Uneven lighting:} Light sources on the ceiling tends to cause the ball to be brighter at the top than at the bottom.
 \item \textbf{Occlusion:} The ball can be blocked by the player, by the rackets, or even disappear from the field of view in the upper part of the video.
 \item \textbf{Merging:} Low contrast from the ball and the background may cause difficulties in distinguishing both.
-\item \textbf{Object Confusion:} Objects in the background with similar color (e.g. human skin) and shapes (e.g. a bald person head) may be confused with the ball. 
+\item \textbf{Object Confusion:} Objects in the background with similar color (e.g. human skin) and shapes (e.g. a bald person head) may be confused with the ball.
 \item \textbf{Small size:} Size of the ball is only a fraction of the frame, which randers histogram-based detection unsuitable.
 \item \textbf{Time constraint:} latency from detecting to tracking the ball must be minimised.
 \end{itemize}
 
 In order to overcome these issues it is proposed a method that executes an object segmentation followed by a object evaluation algorithm. The object segmentation is composed by a two-pass thresholding (TPT) algorithm, capable of adapting the threshold according to context. The first pass highlights only elements of the frame with a highly similar color to the one of the ball, and the second thresholding relax the constraints in order to reconstruct the shape of the object. The output is a set of candidate balls to be further evaluated by the object evaluation algorithm. This second algorithm is also executed in two steps. In the first it is controlled if the individuated object displays a rounded upper  contour, its location is consistent with the predicted location and if it exhibits motion both at its centre and in the predicted location. And in the second, from the set of objects that were able to pass the first step, one is chosen as the ball based on spatial geometric measurements (area, maximum width, maximum height, perimeter, roundness, and error on the rounded upper contour).
 
-These elements are going to be further discussed in the document as they were applied in the project. 
+These elements are going to be further discussed in the document as they were applied in the project.
 
 \textbf{Tamaki and Saito(20..)} proposed a method of reconstructing 3D trajectories of table tennis balls. They consider both the problem reconstructing the trajectory from two rgb cameras and from one rgb-d camera (i.e. capable of providing depth information). One of the novel approaches is the method that approximates that a ball is travelling on tilted planes, and thus it is able to accurately identify which of the possible candidates is the ball. Also they leverage on the work produced by\textbf{ Zhang (CITE)} to compute the camera intrinsics ... (continue)
 
 
 \section{Solution}
 
-The proposed solution is divided in table tennis detection, camera calibration, ball tracking, 2D trajectory estimation, camera synchronization and 3D trajectory estimation. 
+The proposed solution is divided in table tennis detection, camera calibration, ball tracking, 2D trajectory estimation, camera synchronization and 3D trajectory estimation.
 \subsection{Set-up Phase}
 
-	In the set-up phase the user selects the initial position of the ball and its diameter. The initial position allows the algorithm to understand which is the object to be tracked in case of multiple candidate objects in the scene and also allows the fine tuning of the color of the ball, done by averaging on the neighbouring pixels color. The diameter serves to define many of the constraints used in the algorithm, such as the area related constraints for detecting the ball, the size of the Region of Interest, the kernel for blurring the frame and thus smoothing the edges of objects. 
+	In the set-up phase the user selects the initial position of the ball and its diameter. The initial position allows the algorithm to understand which is the object to be tracked in case of multiple candidate objects in the scene and also allows the fine tuning of the color of the ball, done by averaging on the neighbouring pixels color. The diameter serves to define many of the constraints used in the algorithm, such as the area related constraints for detecting the ball, the size of the Region of Interest, the kernel for blurring the frame and thus smoothing the edges of objects.
 
 \subsection{Table detection}
 
@@ -118,11 +118,11 @@ where the thresholds (BLUEMIN, BLUEMAX and VLIGHTMIN) are defined from the hue v
 
 A line is considered valid if
 
-$line = blue_{1} \veebar blue_{2}$  
+$line = blue_{1} \veebar blue_{2}$
 
 \subsubsection{Lines grouping}
 
-Still needs to be developed 
+Still needs to be developed
 
 After detecting the lines on the edge of the table we need to cluster them using kmeans ....
 
@@ -157,10 +157,10 @@ The pseudocode of the ball tracking algorithm is as follows:
 \State $ Candidate Balls \gets$ First Pass(ROI) \Comment{First pass has a coarse threshold}
 \If {$Candidate Balls$ were found}
 	\For {each $Candidate Ball$}
-		\State $ROI \gets$ Add the ROI of the $CandidateBall$ 
+		\State $ROI \gets$ Add the ROI of the $CandidateBall$
 	\EndFor
 \State $Candidate Balls$ Second Pass(ROI) \Comment{Second pass has a relaxed threshold}
-\State $Objects \gets$ Object Evaluation 
+\State $Objects \gets$ Object Evaluation
 \State $Positions \gets$ Add $Object$ with smallest error from $Objects$
 \EndIf
 \EndWhile
@@ -171,7 +171,7 @@ The pseudocode of the ball tracking algorithm is as follows:
 
 \subsubsection{Two-Pass Thresholding}
 
-The objective is to segment \textit{candidate balls} from the other elements in the frame. \textit{Candidate balls} are objects that exhibit similar properties to the Object of Interest (OOI). To perform this segmentation it is implemented a color thresholding algorithm. The basic idea is to create a binary differential image where pixels with a color similar to the one of the ball are turned white while others are turned black, then the neighbouring white pixels are merged together to form an object. However, simple thresholding tends to be sensible to variations in color due to lighting or movement. Therefore, to increase precision this is divided in two passes. In the first, a coarse threshold is applied and only pixels with a sufficiently similar color to the ball are filtered and grouped according to the process described above. The coarse threshold only individuates candidates that have a high probability of being the ball, but is also expected to produce a distorted object. In this matter, the second pass is applied only on the regions where \textit{candidate balls} have been found and with a more relaxed threshold. This allows the recovery of the original shape of the object, while still excluding the majority of false positives. 
+The objective is to segment \textit{candidate balls} from the other elements in the frame. \textit{Candidate balls} are objects that exhibit similar properties to the Object of Interest (OOI). To perform this segmentation it is implemented a color thresholding algorithm. The basic idea is to create a binary differential image where pixels with a color similar to the one of the ball are turned white while others are turned black, then the neighbouring white pixels are merged together to form an object. However, simple thresholding tends to be sensible to variations in color due to lighting or movement. Therefore, to increase precision this is divided in two passes. In the first, a coarse threshold is applied and only pixels with a sufficiently similar color to the ball are filtered and grouped according to the process described above. The coarse threshold only individuates candidates that have a high probability of being the ball, but is also expected to produce a distorted object. In this matter, the second pass is applied only on the regions where \textit{candidate balls} have been found and with a more relaxed threshold. This allows the recovery of the original shape of the object, while still excluding the majority of false positives.
 
 Below it is possible to obseve the pseudocode for the \textbf{First Pass:}
 \begin{algorithm}[H]
@@ -179,13 +179,13 @@ Below it is possible to obseve the pseudocode for the \textbf{First Pass:}
 \begin{algorithmic}
 \While {$CandidateBall$ not found AND  $i<MaxIterations$}
 \State {$BinaryROI \gets$ Color threshold the ROI} \Comment{returns a binary image with the white pixels representing the color of the ball}
-\If {Only one object is found in the $BinaryROI$} 
+\If {Only one object is found in the $BinaryROI$}
     \State $ CandidateBall \gets$ set as found
     \State $ BestFirstThreshold \gets$ set current thresholds as best
 \ElsIf {More then one object found in the $BinaryROI$}
 		\If{Less objects were found than in the previous iteration}
 		 	\State $BestNumberOfObjects \gets NumberOfObjects$
-			\State $ BestFirstThreshold \gets$ set current thresholds as best		
+			\State $ BestFirstThreshold \gets$ set current thresholds as best
 		\EndIf
 		\State $FirstThreshold \gets$ Increase the Threshold
 \Else
@@ -215,13 +215,13 @@ And for the \textbf{Second Pass:}
 	\ElsIf{Object area is greater than the ball area}
 		\If{smallest percentage error so far}
 		 	\State $BestPercentageError \gets Error$
-			\State $ BestSecondThreshold \gets$ set current threshold		
-		\EndIf	
+			\State $ BestSecondThreshold \gets$ set current threshold
+		\EndIf
 		\State $SecondThreshold \gets$ Increase the Threshold
-	\Else 
+	\Else
 		\If{smallest percentage error so far}
 		 	\State $BestPercentageError \gets Error$
-			\State $ BestSecondThreshold \gets$ set current threshold		
+			\State $ BestSecondThreshold \gets$ set current threshold
 		\EndIf
 		\State $SecondThreshold \gets$ Decrease the Threshold
 	\EndIf
@@ -237,11 +237,11 @@ And for the \textbf{Second Pass:}
 \end{algorithm}
 
 \subsubsection{Automatic Tuning of the Two-Pass Thresholding}
-As it can be noticed, the method is highly dependent on the configuration of the TPT thresholds. They may vary depending on the specific environment conditions in which the video was recorded, and even in between the video frames. Hence, to increase the generalisability of the algorithm, it is implemented an automatic tuning of the TPT threshold. 
-The automatic tuning leverages on the reference location for the ball selected in the set-up phase by defining a region of interest (ROI) around the last known position of the ball. In the ROI it is applied the first pass thresholding. If zero \textit{candidate balls} are found the threshold is decreased, while if it is found more than one, it is increased. The first pass is repeated either until the maximum number of iterations is reached or only one candidate is left. In the event that no candidate was found, the current frame is discarded and the adaptive control of the ROI is triggered. However, if there is at least one candidate the second pass is executed. The second pass is similar to the first, but instead of comparing the number of OOI found, it is controlled their area. As before, if the area is greater than the acceptable percentage difference from the known ball area, the threshold is increased. In the opposite event, it is decreased. When the maximum number of iterations is reached or the percentage difference is within the acceptable difference, the current threshold is selected as optimum and the ball selection algorithm is triggered. 
+As it can be noticed, the method is highly dependent on the configuration of the TPT thresholds. They may vary depending on the specific environment conditions in which the video was recorded, and even in between the video frames. Hence, to increase the generalisability of the algorithm, it is implemented an automatic tuning of the TPT threshold.
+The automatic tuning leverages on the reference location for the ball selected in the set-up phase by defining a region of interest (ROI) around the last known position of the ball. In the ROI it is applied the first pass thresholding. If zero \textit{candidate balls} are found the threshold is decreased, while if it is found more than one, it is increased. The first pass is repeated either until the maximum number of iterations is reached or only one candidate is left. In the event that no candidate was found, the current frame is discarded and the adaptive control of the ROI is triggered. However, if there is at least one candidate the second pass is executed. The second pass is similar to the first, but instead of comparing the number of OOI found, it is controlled their area. As before, if the area is greater than the acceptable percentage difference from the known ball area, the threshold is increased. In the opposite event, it is decreased. When the maximum number of iterations is reached or the percentage difference is within the acceptable difference, the current threshold is selected as optimum and the ball selection algorithm is triggered.
 
 \subsubsection{Adaptive Control of the Region of Interest}
-The table tennis ball occupies only about 0.06\% of the frame. Hence, searching the entire frame is not only computationally expensive but also is counter-productive as it is increases the possibility of false positives. To solve this issue only the part of the frame that is likely to contain the ball is examined. Wong et. al.\cite{Wong} suggest the use of interpolation based on at least the two last known ball locations to determine where is the probable next ball position and set it as the centre of the ROI. We, however, choose to derogate from this approach. 
+The table tennis ball occupies only about 0.06\% of the frame. Hence, searching the entire frame is not only computationally expensive but also is counter-productive as it is increases the possibility of false positives. To solve this issue only the part of the frame that is likely to contain the ball is examined. Wong et. al.\cite{Wong} suggest the use of interpolation based on at least the two last known ball locations to determine where is the probable next ball position and set it as the centre of the ROI. We, however, choose to derogate from this approach.
 In our approach, the adaptive control of the ROI is based only on the of the previous search successes. I.e. if the ball was found in the previous frame, it is set as a small square of \textit{m} times the diameter of the ball. For each frame the ball is not detected, the size of the ROI is increased by a constant factor \textit{k}, until the limit of the frame size.
 
 \subsubsection{Object Evaluation}
@@ -250,24 +250,24 @@ The object segmentation phase individuates a set of candidates that have a simil
 \begin{table}[!ht]
 \begin{tabularx}{\textwidth}{|s|C|}
 \hline
-	\textit{Rounded Upper Contour} (RUC) & 
+	\textit{Rounded Upper Contour} (RUC) &
 	$ RUC= \begin{cases}
       1, &\text{if } E_{RUC} < t_{RUC} \\
       0, & \text{if } E_{RUC} \geq t_{RUC}
-    \end{cases} $ 
-    where $t_{RUC}$ is a preset threshold and $E_{RUC}$ is an objective (error) function defined as: 
+    \end{cases} $
+    where $t_{RUC}$ is a preset threshold and $E_{RUC}$ is an objective (error) function defined as:
 $ E_{RUC} = \dfrac{\sum{|\dfrac{d_{i}-r}{r}|}}{N} $ and $d_{i} = \sqrt{(x_{i} - x_{c})^2 + (y_{i} - y_{c})^2} $ where $(x_{i}y_{i})$ is a pixel in the upper contour, $i$ the pixel index, $N$ the number of pixels, $r$ the radius and $(x_{c},y_{c})$ the centre obtained by solving the equation of a circle for $(x_{i},y_{i})$.  \\ \hline
-	\textit{Position} (T) & 
+	\textit{Position} (T) &
 	$ T= \begin{cases}
       1, &\text{if } L_{diff} < t_{T} \\
       0, & \text{if } L_{diff} \geq t_{T}
-    \end{cases} $ 
+    \end{cases} $
     Where $L_{diff}$ is the Euclidean distance between the OOI actual and predicted positions and  $t_{T}$ is a threshold. The predicted location is the linear extrapolation of OOI locations in previous frames. \\ \hline
-    \textit{Motion} (M) & 
+    \textit{Motion} (M) &
 	$ M= \begin{cases}
       1, &\text{if } OC_{diff} < t_{M} \\
       0, & \text{if } OC_{diff} \geq t_{M}
-    \end{cases} $ 
+    \end{cases} $
     Where $OC_{diff}$ is the Euclidean distance between the candidate ball and the OOI in the previous frame and  $t_{M}$ is a threshold. \\ \hline
 \end{tabularx}
 \caption{First Stage Evaluation}
@@ -280,29 +280,29 @@ Those that were able to fulfill at least two of the above criteria are kept whil
 $E = \dfrac{E_{RUC} + w_{A}\dfrac{|{A_{c}-A_{b}}|}{A_{b}} + w_{W}\dfrac{|{W_{c}-W_{b}}|}{W_{b}} + w_{H}\dfrac{|{H_{c}-H_{b}}|}{H_{b}} + w_{P}\dfrac{|{P_{c}-P_{b}}|}{P_{b}} + w_{R}\dfrac{|{R_{c}-R_{b}}|}{R_{b}}}{(n_{p}+1)n_{c}}$
 }
 \end{equation}
- 
-where $w$ are the weightings, $n_{p}$ is the number of spatial parameters, $n_{c}$ is the number of conditions a \textit{candidate ball} satisfied in the stage 1 test. The $X_{c}$ and $X_{b}$ are the spatial parameters of the \textit{candidate ball} and OOI respectively. 
- 
+
+where $w$ are the weightings, $n_{p}$ is the number of spatial parameters, $n_{c}$ is the number of conditions a \textit{candidate ball} satisfied in the stage 1 test. The $X_{c}$ and $X_{b}$ are the spatial parameters of the \textit{candidate ball} and OOI respectively.
+
 \begin{table}[!ht]
 \begin{tabularx}{\textwidth}{|s|C|}
 \hline
-	\textit{Area} (A) & 
+	\textit{Area} (A) &
 	Number of pixels in the object.  \\ \hline
-	\textit{Maximum width} (W) & 
+	\textit{Maximum width} (W) &
 	Horizontal distance between left and rightmost pixels of the object. \\ \hline
-    \textit{Maximum height} (H) & 
+    \textit{Maximum height} (H) &
 	Vertical distance between top and bottom most pixels of the object. \\ \hline
-	\textit{Perimeter} (P) & 
+	\textit{Perimeter} (P) &
 	Length of object boundary \\ \hline
-	\textit{Roundness} (R) & 
+	\textit{Roundness} (R) &
 	Given by:
 	$ R = \dfrac{4 \Pi A}{P^2} $ \\ \hline
 \end{tabularx}
 \caption{Second Stage Evaluation}
 \label{table:second}
-\end{table} 
- 
-The \textit{candidate ball} with the smallest error $E$ is selected as OOI. 
+\end{table}
+
+The \textit{candidate ball} with the smallest error $E$ is selected as OOI.
 
 To better exemplify the above algorithm, below it is possible to observe the pseudocode:
 \begin{algorithm}[H]
@@ -310,7 +310,7 @@ To better exemplify the above algorithm, below it is possible to observe the pse
 \begin{algorithmic}
 \For {each Object} \Comment{Start with the first stage}
 \State {$RUC \gets$ True if it has Rounded Upper Contour} \Comment{according to described formula in table 2}
-\If{More than one position of the ball in previous frames is available} 
+\If{More than one position of the ball in previous frames is available}
 	\State{$Predict \gets$ Linear extrapolate the next ball location}
 	\State{$T \gets$ True if Object is within a maximum distance from prediction}
 	\State{$M \gets$ True if candidate show a minimum movement from last known position}
@@ -331,14 +331,14 @@ To better exemplify the above algorithm, below it is possible to observe the pse
 \end{algorithm}
 
 \subsection{2D Trajectory Estimation}
-The above process is repeated for every frame of the video, resulting in a sequence of ball positions in time. From this is possible to reconstruct the trajectory of the ball according to the single cameras. 
-As a possible excess of caution, first an outlier removal process is done using the Hampel identifier. The Hampel filter calculates the median of the window composed by the six surrounding positions, three per side. Then it estimates the standard deviation of each sample with its window median, and replaces it with the median if it is more than three standard deviations. 
-From the derived set of positions, it is applied a cubic-Spline interpolation to reconstruct the curve. This method allows to estimate successfully even the points in which the ball was out of the frame.  
+The above process is repeated for every frame of the video, resulting in a sequence of ball positions in time. From this is possible to reconstruct the trajectory of the ball according to the single cameras.
+As a possible excess of caution, first an outlier removal process is done using the Hampel identifier. The Hampel filter calculates the median of the window composed by the six surrounding positions, three per side. Then it estimates the standard deviation of each sample with its window median, and replaces it with the median if it is more than three standard deviations.
+From the derived set of positions, it is applied a cubic-Spline interpolation to reconstruct the curve. This method allows to estimate successfully even the points in which the ball was out of the frame.
 
 \subsection{Camera Synchronization}
-To synchronize the camera we use as reference time instants of the bounces of the ball. From the estimation of these instants it is possible to calculate the \textit{delta} between both cameras and correct it. The result is a set of equivalent points in time. 
+To synchronize the camera we use as reference time instants of the bounces of the ball. From the estimation of these instants it is possible to calculate the \textit{delta} between both cameras and correct it. The result is a set of equivalent points in time.
 To estimate the bounce instants, it is observed the changes in the vertical axis for a window of six positions. If it is found that there are three consecutive downward movements followed by three upward, it is checked that there is no change in the vertical axis in the same period (preventing from considering players striking from down to up). From this is recognized a pair frames in which a bounce has occured. The exact moment of the bounce is estimated with the cubice-Spline interpolation.
-With the bounces time estimation, it is calculated which are the possible matches in the cameras. This is done by the comparison of the time difference for bounces in the first camera with the ones in the second. In case of doubt it is also considered the interval between two bounces at the same camera and compared with the multiple possibilities in the second camera.  
+With the bounces time estimation, it is calculated which are the possible matches in the cameras. This is done by the comparison of the time difference for bounces in the first camera with the ones in the second. In case of doubt it is also considered the interval between two bounces at the same camera and compared with the multiple possibilities in the second camera.
 
 \subsection{3D trajectory Estimation}
 

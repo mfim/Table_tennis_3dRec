@@ -29,12 +29,33 @@ $line = blue_{1} \veebar blue_{2}$
 
 ## 1.2 Lines grouping
 
-Still needs to be developed 
+After detecting the lines that are on the edge of the table, we need to extract the four lines that outline the shape of the table. We start by grouping the lines into four groups. Using the k-means clustering algorithm, the lines are separated into four groups. The algorithm uses squared euclidean distance.
 
-After detecting the lines on the edge of the table we need to cluster them using kmeans ....
+Given that each line is represented by $ax + b$, we calculated the weighted average of the lines. We gave more weight to the longest lines as they are more accurate.
 
-Because of the distortion caused by the wide angle lens, the lines detection algorithm sometimes return many lines for one table edge.
+The fact the we get many lines for each of the edges of the table is due to the radial distortion induced by the wide lens camera.
 
-we have multiple lines per edge =>  weighted average grouping
+Calculating the corner points is then straight forward, as they are the intersection of the edge lines.
 
-then grouping => calculate interescts and then finished
+# 2. Camera Calibration
+
+## 2.1 Internal Parameters K
+
+Knowing that the image of the absolute conic $\omega$ depends only on the internal parameters $K$ of the camera matrix $P$, we can find $K$ by calculating the image of the absolute conic $\omega$.
+
+In addition to that, we know that two vanishing points $v_{1}$ and $v_{2}$ that correspond to perpendicular directions satisfy the following property:
+
+$v_{1}^T\omega v_{2} = 0$
+
+To generate enough constraints on $\omega$, we need to find multiple vanishing points corresponding to perpendicular directions. After detecting lines using Hough Lines, we choose the perpendicular lines and calculate their intersection with the vanishing line.
+
+The vanishing line is found by: intersecting parallel lines to find vanishing points and the fitting a line going through these vanishing points found before.
+
+Using the Choleski factorization, we compute the matrix $K$ from $\omega = (KK^T)^-1$
+
+## 2.2 External Parameters
+
+Using the homography that maps the table to real world coordinates and the internal parameters K we find the camera rotation and translation.
+
+
+## 3D Reconstruction
