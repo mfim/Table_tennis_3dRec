@@ -37,6 +37,11 @@ The fact the we get many lines for each of the edges of the table is due to the 
 
 Calculating the corner points is then straight forward, as they are the intersection of the edge lines.
 
+# 1.3 Radial distortion
+
+The radial distortion cause the world lines not to be imaged as lines, which makes it to difficult to find the lines. The scene structure is lost because of the distorted line and it tampers with finding exactly the vanishing points and therefore the vanishing lines. The radial distortion may be removed by computing $L(r)$ (the distortion factor) by imposing a cost on the straightness of the lines in the image.
+
+
 # 2. Camera Calibration and Position
 
 ## 2.1 Internal Parameters K
@@ -107,9 +112,12 @@ $k^{w}_{O}$ can be found by calculating the cross product of $i^{w}_{O}$ and $j^
 
 Using the same method, we can find $O'$, the second camera frame, and its localisation in the camera frame. And since we found the localisation of the first camera to the table and the table according to the second camera (inverse of the localisation of the second camera to the table), we can find the localisation of the cameras according to each other.
 
-The 3D position of the ball in the table frame can be found using the two camera matrices.
+The 3D position of the ball in the table frame can be found using the two camera matrices. Using the two camera matrices, we shall compute the essential matrice ... more details should be added here about the **essential matrice** and how to get the coordinates.
+
 
 ## Epipolar geometry
+
+### Introduction
 
 The pinhole model used as a basis for the previous analysis is a 3D to 2D conversion. When doing the conversion we loose an important information which is the depth of the image. Therefore to find the depth, we use two (or more) cameras. The intrinsic projective geometry of two views is called epipolar geometry. It depends only on the internal parameters of the camera and their relative pose while being independent from the scene structure.
 
@@ -118,4 +126,19 @@ $xFx^{'}=0$
 
 Where $x$ and $x^{'}$ are the image coordinates of the real world point $X$ in the first and second view.
 
-The points $x$, $x^{'}$, the camera centers ($c$, $c^{'}), and $X$ are coplanar and constitue the plane $\pi$ called the epipolar plane. The epipolar plane meets the 
+The points $x$, $x^{'}$, the camera centers ($c$, $c^{'}$), and $X$ are coplanar and constitue the plane $\pi$ called the epipolar plane. The epipolar plane intersects the image plane in a line called the epipolar line.
+
+For each point $x$ in one image, there exists a corresponding epipolar line $l^{'}$ in the other image. Any point $x^{'}$ in the second image matching the point $x$ must lie in the epipolar line $l^{'}$.
+
+
+******* INSERT IMAGE OF EPIPOLAR HERE
+
+The general approach to perform the reconstruction from two views consists of three steps. First we compute the fundamental matrix and then the camera matrices from the fundamental matrix and finally using point correspondences we find the point coordinates in the world space.
+
+It is important to note that some ambiguity still exists if the fundamental matrix is not computed uniquely. This approach should be supplied by 3D knowledge of the scene. If the fundamental matrix is computed uniquely the image can be reconstructed only to a projective ambiguity. But adding finding the plane at infinty and the image of the absolute conic we can achieve a metric reconstruction.
+
+### Computation of the fundamental matrix and camera matrices
+
+We use the property $xFx^{'}=0$ to find linear equations of the fundamental matrix. A set of corresponding points $x_i \leftrightarrow x'_i$ need to be found. At least 8 points are needed to solve the equation linearly or using least squares.
+
+The camera matrices may be chosen as $P = [I | \textbf{0}]$ and $P=[[\textbf{e}']\times F | \textbf{e}']$
