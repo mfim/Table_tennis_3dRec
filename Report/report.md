@@ -37,7 +37,7 @@ The fact the we get many lines for each of the edges of the table is due to the 
 
 Calculating the corner points is then straight forward, as they are the intersection of the edge lines.
 
-# 2. Camera Calibration
+# 2. Camera Calibration and Position
 
 ## 2.1 Internal Parameters K
 
@@ -53,9 +53,69 @@ The vanishing line is found by: intersecting parallel lines to find vanishing po
 
 Using the Choleski factorization, we compute the matrix $K$ from $\omega = (KK^T)^-1$
 
-## 2.2 External Parameters
+## 2.2 Cameras position
 
-Using the homography that maps the table to real world coordinates and the internal parameters K we find the camera rotation and translation.
+For each one of the cameras we start finding its localisation relatively to the table. We set the world reference frame equal to the camera reference frame.
 
+We consider a table frame $O$, having its origin on the bottom left corner of the table with the $x$ axis along the short edge of the table and the $y$ axis along the long one. Any point on the table will be expressed as $X^{O} = \begin{pmatrix}
+i^{w}_{O} & j^{w}_{O} & t^{w}_{O}
+\end{pmatrix} = K^{-1}H^{T}$ in $O$. We can express the table reference frame according to the world reference frame as:
 
-## 3D Reconstruction
+$X^{w}= \bigl(\begin{smallmatrix}
+i^{w}_{O} & j^{w}_{O}  & k^{w}_{O} & t^{w}_{O} \\
+0 & 0 & 0 & 1  
+\end{smallmatrix}\bigr) X^{O}  =  \bigl(\begin{smallmatrix}
+i^{w}_{O} & j^{w}_{O} & t^{w}_{O} \\
+0 & 0 & 1  
+\end{smallmatrix}\bigr) \begin{pmatrix}
+x\\
+y\\
+w\\
+\end{pmatrix}$
+
+Using the homography that maps the table to real world coordinates and the internal parameters K we find the camera rotation and translation based on a pinhole model camera, we have:
+
+$X'= \bigl(\begin{smallmatrix}
+ & 0 \\
+K &  0\\
+ &  0
+\end{smallmatrix}\bigr)\bigl(\begin{smallmatrix}
+i^{w}_{O} & j^{w}_{O} & t^{w}_{O} \\
+0 & 0 & 1  
+\end{smallmatrix}\bigr) \begin{pmatrix}
+x\\
+y\\
+w\\
+\end{pmatrix} = K \bigl(\begin{smallmatrix}
+i^{w}_{O} & j^{w}_{O} & t^{w}_{O}
+\end{smallmatrix}\bigr)
+ \begin{pmatrix}
+x\\
+y\\
+w\\
+\end{pmatrix}$
+
+The homography mapping the table plan to the image coordinates has already been calculated and it satisfies:
+
+$X' = H \begin{pmatrix}
+x & y & w
+\end{pmatrix} ^ {T}$ and therefore $\begin{pmatrix}
+i^{w}_{O} & j^{w}_{O} & t^{w}_{O}
+\end{pmatrix} = K^{-1}H$
+
+$k^{w}_{O}$ can be found by calculating the cross product of $i^{w}_{O}$ and $j^{w}_{O}$. So the orientation of $O$ in the camera frame is $R^{w}_{O} = \begin{pmatrix} i^{w}_{O} & j^{w}_{O} & k^{w}_{O} \end{pmatrix}$
+
+Using the same method, we can find $O'$, the second camera frame, and its localisation in the camera frame. And since we found the localisation of the first camera to the table and the table according to the second camera (inverse of the localisation of the second camera to the table), we can find the localisation of the cameras according to each other.
+
+The 3D position of the ball in the table frame can be found using the two camera matrices.
+
+## Epipolar geometry
+
+The pinhole model used as a basis for the previous analysis is a 3D to 2D conversion. When doing the conversion we loose an important information which is the depth of the image. Therefore to find the depth, we use two (or more) cameras. The intrinsic projective geometry of two views is called epipolar geometry. It depends only on the internal parameters of the camera and their relative pose while being independent from the scene structure.
+
+The main component of epipolar geometry is the $3\times 3$ matrix $F$ called the fundamental matrix and satisfies the following property:
+$xFx^{'}=0$
+
+Where $x$ and $x^{'}$ are the image coordinates of the real world point $X$ in the first and second view.
+
+The points $x$, $x^{'}$, the camera centers ($c$, $c^{'}), and $X$ are coplanar and constitue the plane $\pi$ called the epipolar plane. The epipolar plane meets the 
