@@ -40,12 +40,10 @@ while hasFrame(v)
     % skip the bad frames at the beginning
     if skipped < skips
         if hasFrame(v)
-            currentTime = currentTime + timeSingleFrame;
             frame = readFrame(v);
         end
         skipped=skipped+1;
     else
-        currentTime = currentTime + timeSingleFrame;
         frame = readFrame(v);
         ball_found = 0;
         candidateRoiRect = [];
@@ -62,12 +60,12 @@ while hasFrame(v)
                 figure;
                 imshow(frame);
                 [positions(1), positions(2)] = getpts;
-                positions(3) = v.CurrentTime;
+                positions(3) = currentTime;
                 [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(positions(1), positions(2), ...
                     frame, first_threshold, second_threshold);
                 roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
-                currentTime = currentTime + timeSingleFrame;
                 frame = readFrame(v);
+                currentTime = currentTime + timeSingleFrame;
                 roi = imcrop(frame, roiRect);
                 first_frame = false;
                 
@@ -152,6 +150,8 @@ while hasFrame(v)
         frame_previous = frame;
         ball_found_prev = ball_found;
     end
+    
+    currentTime = currentTime + timeSingleFrame;
 end
 
 [~, outlier] = hampel(positions, 1);
@@ -165,7 +165,8 @@ end
 
 % let's plot the balls found, include the radius
 hold on; plot(final_positions(:,1), final_positions(:,2), 'ro');
-interval = final_positions(1,3):0.001:final_positions(length(final_positions),3);
+% Change to 0:001 if video is 120fps
+interval = final_positions(1,3):0.01:final_positions(length(final_positions),3);
 vq = interp1(final_positions(:, 3), final_positions(:, 1:2), interval , 'spline');
 hold on; plot(vq(:,1), vq(:,2), 'g--');
 
