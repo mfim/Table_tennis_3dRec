@@ -1,4 +1,4 @@
-function [final_positions, vq, bounceTs, bouncePoint, strikeTs, strikePoint] = ballTracking(videoName, MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, skips)
+function [final_positions, vq, bounceTs, bouncePoint, strikeTs, strikePoint] = ballTracking(intrinsics, videoName, MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, skips)
 % ---- BALL RELATED CONSTANTS ---- %
 BALL_AREA = pi * (BALL_SIZE/2)^2;
 BALL_PERIMETER = 2 * pi * (BALL_SIZE/2);
@@ -41,10 +41,12 @@ while hasFrame(v)
     if skipped < skips
         if hasFrame(v)
             frame = readFrame(v);
+            frame = undistortImage(frame, intrinsics);
         end
         skipped=skipped+1;
     else
         frame = readFrame(v);
+        frame = undistortImage(frame, intrinsics);
         ball_found = 0;
         candidateRoiRect = [];
         candidateBallsRoi = [];
@@ -65,6 +67,7 @@ while hasFrame(v)
                     frame, first_threshold, second_threshold);
                 roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
                 frame = readFrame(v);
+                frame = undistortImage(frame, intrinsics);
                 currentTime = currentTime + timeSingleFrame;
                 roi = imcrop(frame, roiRect);
                 first_frame = false;
@@ -153,7 +156,7 @@ while hasFrame(v)
     
     currentTime = currentTime + timeSingleFrame;
 end
-
+% ---- END OF MAIN LOOP ---- %
 [~, outlier] = hampel(positions, 1);
 final_positions = [];
 for i = 1:length(outlier)
@@ -161,13 +164,13 @@ for i = 1:length(outlier)
         final_positions = [final_positions; positions(i,:)];
     end
 end
-% ---- END OF MAIN LOOP ---- %
 
 % let's plot the balls found, include the radius
 hold on; plot(final_positions(:,1), final_positions(:,2), 'ro');
 % Change to 0:001 if video is 120fps
 interval = final_positions(1,3):0.01:final_positions(length(final_positions),3);
 vq = interp1(final_positions(:, 3), final_positions(:, 1:2), interval , 'spline');
+vq(:, 3) = interval;
 hold on; plot(vq(:,1), vq(:,2), 'g--');
 
 % search for the bounce
@@ -201,6 +204,7 @@ for j = 1:length(candidateTs)
         end
     end
 end
+hold on; plot(bouncePoint(:,1), bouncePoint(:,2), 'w*');
 
 
 % search for the strike
