@@ -24,8 +24,8 @@ secondPosition = 'Video/5-r-120fps.mp4';
 % end
 
 intrinsics = Hero3_120fps();
-vFirst = VideoReader(firstPosition);
-vSecond = VideoReader(secondPosition);
+vFirst = VideoReader(firstPosition, 'CurrentTime', 0.3);
+vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
 frameFirstCam = readFrame(vFirst);
 frameSecondCam = readFrame(vSecond);
 [paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsics(frameFirstCam, intrinsics);      
@@ -74,9 +74,9 @@ function plotTrajectory(Trajectory)
 figure;
 
 curve = animatedline('lineWidth', 2);
-set(gca, 'XLim', [-50 280], 'YLim', [-50 280], 'ZLim', [-50 100]);
+set(gca, 'XLim', [-50 280], 'YLim', [-80 280], 'ZLim', [-50 100]);
 view(43, 24);
-plotTable();
+plotTable(min(abs(Trajectory(:,3))));
 grid on;
 hold on; 
 
@@ -89,17 +89,6 @@ for i=1:length(Trajectory)
 end
 
 end
-
- % Bounce
- % if only one that's the right
- % if more compare time diff to match
- % sep bounce from stroke 
- 
-% calc delta from two videos 
-% set the times right 
-% plot trajectory from two 
- 
- 
 
 
 %Camera Calibration Matrix - Intrinsics:
@@ -129,6 +118,7 @@ j = undistortImage(frame, intrinsics, 'OutputView', 'full');
 figure; imshow(j, []);
 
 % input the corners on rectified image
+% ALWAYS A Z
 [x, y] = getpts;
 imagePoints = [x, y];
 
