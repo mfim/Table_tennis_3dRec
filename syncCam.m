@@ -1,6 +1,4 @@
-function [offset] = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam, ...
-    paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam, ...
-    paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam) 
+function [offset] = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam) 
 
 % Calc real-world point of bounce
 %  BounceCoordFirstCam(:,3) = 1;

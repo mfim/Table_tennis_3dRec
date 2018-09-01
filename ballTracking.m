@@ -87,7 +87,7 @@ while hasFrame(v)
         end
         
         debug = debug+1;
-        if (debug == 190)
+        if (debug == 183)
             disp('dummy');
         end
         
@@ -261,10 +261,10 @@ ball_hsv = rgb2hsv([Rave/255,Gave/255, Bave/255]);
 h = ball_hsv(:,1)*360;
 
 
-FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 70/100];
+FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 65/100];
 FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
 % may be add a variable in the saturation as well
-SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 70/100];
+SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 65/100];
 SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
 
 % handle edges

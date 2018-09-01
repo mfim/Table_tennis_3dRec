@@ -23,6 +23,7 @@ secondPosition = 'Video/5-r-120fps.mp4';
 %   return;
 % end
 
+% calc intrinsics and extrinsics 
 intrinsics = Hero3_120fps();
 vFirst = VideoReader(firstPosition, 'CurrentTime', 0.3);
 vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
@@ -32,20 +33,15 @@ frameSecondCam = readFrame(vSecond);
 [paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam] = calcExtrinsics(frameSecondCam, intrinsics);
 clear vFirst vSecond;
 
+% track ball
 [PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(intrinsics, firstPosition, ... 
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 30);
 [PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(intrinsics, secondPosition,...
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 0);
 
- % not working currently
-offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam, ...
-    paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam, ...
-    paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam);
+offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam);
 
-% zeroTime = CurveFirstCam(1,3);
-% CurveFirstCam(:,3) = CurveFirstCam(:,3) - zeroTime; 
 CurveSecondCam(:,3) = CurveSecondCam(:,3) - (offset);
-%CurveSecondCam = CurveSecondCam(:,3) > 0;
 
 % Handle the start 
 if(CurveFirstCam(1,3) > CurveSecondCam(1,3))
@@ -61,12 +57,14 @@ else
     CurveFirstCam = CurveFirstCam(CurveFirstCam(:,3) < CurveSecondCam(length(CurveFirstCam(:,1)),3),:);
 end
 
+% estimate same points
 MatchSecondCam = interp1(CurveSecondCam(:, 3), CurveSecondCam(:, 1:2), CurveFirstCam(:,3) , 'spline');
 
+% triangulate
 Trajectory = triangulate(CurveFirstCam(:, 1:2), MatchSecondCam, paramsFirstCam, paramsSecondCam);
 %Trajectory = triangulate(CurveFirstCam(1:225, 1:2), CurveSecondCam(:, 1:2), paramsFirstCam, paramsSecondCam);
 
-
+% plot trajectory
 plotTrajectory(Trajectory);
 
 
@@ -108,33 +106,3 @@ intrinsics = cameraIntrinsics(focalLength, principalPoint, imageSize, 'RadialDis
 
 end
 
-function [cameraParameters, rotationMatrix, translationVector] = calcExtrinsics(frame, intrinsics)
-
-% official table dimension in cm
-worldPoints = [0, 0; 152.5, 0; 0, 274; 152.5, 274];
-
-% rectify image
-j = undistortImage(frame, intrinsics, 'OutputView', 'full');
-figure; imshow(j, []);
-
-% input the corners on rectified image
-% ALWAYS A Z
-[x, y] = getpts;
-imagePoints = [x, y];
-
-[rotationMatrix, translationVector] = extrinsics(imagePoints, worldPoints, intrinsics);
-cameraParameters = cameraMatrix(intrinsics, rotationMatrix, translationVector);
-%cameraParameters = cameraParameters('IntrinsicMatrix', intrinsics.IntrinsicMatrix, ...);
-
-%tablePlane = BounceCoordSecondCam/paramsSecondCam;
-
-
-% plot camera position 
-[orientation, location] = extrinsicsToCameraPose(rotationMatrix, translationVector);
-
-figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 20);
-hold on;
-pcshow([worldPoints, zeros(size(worldPoints, 1),1)], ...
-    'VerticalAxisDir','down','MarkerSize',40);
-
-end
