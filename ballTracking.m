@@ -1,4 +1,4 @@
-function [final_positions, vq, bounceTs, bouncePoint, strikeTs, strikePoint] = ballTracking(videoName, MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, skips)
+function [final_positions, vq, bounceTs, bouncePoint, strikeTs, strikePoint] = ballTracking(intrinsics, videoName, MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, skips)
 % ---- BALL RELATED CONSTANTS ---- %
 BALL_AREA = pi * (BALL_SIZE/2)^2;
 BALL_PERIMETER = 2 * pi * (BALL_SIZE/2);
@@ -40,13 +40,13 @@ while hasFrame(v)
     % skip the bad frames at the beginning
     if skipped < skips
         if hasFrame(v)
-            currentTime = currentTime + timeSingleFrame;
             frame = readFrame(v);
+            frame = undistortImage(frame, intrinsics);
         end
         skipped=skipped+1;
     else
-        currentTime = currentTime + timeSingleFrame;
         frame = readFrame(v);
+        frame = undistortImage(frame, intrinsics);
         ball_found = 0;
         candidateRoiRect = [];
         candidateBallsRoi = [];
@@ -62,12 +62,13 @@ while hasFrame(v)
                 figure;
                 imshow(frame);
                 [positions(1), positions(2)] = getpts;
-                positions(3) = v.CurrentTime;
+                positions(3) = currentTime;
                 [FIRST_PASS_HSV_MAX, FIRST_PASS_HSV_MIN, SECOND_PASS_HSV_MAX, SECOND_PASS_HSV_MIN, h] = hsvRangesDef(positions(1), positions(2), ...
                     frame, first_threshold, second_threshold);
                 roiRect = calcRoiSize(positions, [size(frame,2), size(frame,1)], ROI_WIDTH, ROI_HEIGHT);
-                currentTime = currentTime + timeSingleFrame;
                 frame = readFrame(v);
+                frame = undistortImage(frame, intrinsics);
+                currentTime = currentTime + timeSingleFrame;
                 roi = imcrop(frame, roiRect);
                 first_frame = false;
                 
@@ -86,7 +87,7 @@ while hasFrame(v)
         end
         
         debug = debug+1;
-        if (debug == 190)
+        if (debug == 183)
             disp('dummy');
         end
         
@@ -152,8 +153,10 @@ while hasFrame(v)
         frame_previous = frame;
         ball_found_prev = ball_found;
     end
+    
+    currentTime = currentTime + timeSingleFrame;
 end
-
+% ---- END OF MAIN LOOP ---- %
 [~, outlier] = hampel(positions, 1);
 final_positions = [];
 for i = 1:length(outlier)
@@ -161,20 +164,23 @@ for i = 1:length(outlier)
         final_positions = [final_positions; positions(i,:)];
     end
 end
-% ---- END OF MAIN LOOP ---- %
 
 % let's plot the balls found, include the radius
 hold on; plot(final_positions(:,1), final_positions(:,2), 'ro');
-interval = final_positions(1,3):0.001:final_positions(length(final_positions),3);
+% Change to 0:001 if video is 120fps
+interval = final_positions(1,3):0.01:final_positions(length(final_positions),3);
 vq = interp1(final_positions(:, 3), final_positions(:, 1:2), interval , 'spline');
+vq(:, 3) = interval;
 hold on; plot(vq(:,1), vq(:,2), 'g--');
 
 % search for the bounce
 % analyzing y in 5 frames
 candidateTs = [];
-for i= 3:length(final_positions)-2
-    if ((final_positions(i-2, 2) < final_positions(i-1, 2)) && (final_positions(i-1, 2) < final_positions(i,2)) && ...
-            (final_positions(i, 2) > final_positions(i+1, 2)) && (final_positions(i+1, 2) > final_positions(i+2,2)))
+for i= 4:length(final_positions)-3
+    if ((final_positions(i-3, 2) < final_positions(i-2, 2)) && ...
+        (final_positions(i-2, 2) < final_positions(i-1, 2)) && (final_positions(i-1, 2) < final_positions(i,2)) && ...
+            (final_positions(i, 2) > final_positions(i+1, 2)) && (final_positions(i+1, 2) > final_positions(i+2,2)) ...
+            && (final_positions(i+2, 2) > final_positions(i+3,2)))
         % in a bounce there is no change in the x direction 
             if((final_positions(i-2, 1) > final_positions(i-1, 1)) && final_positions(i-1, 1) > final_positions(i,1) && ... 
                     final_positions(i,1) > final_positions(i+1,1) && final_positions(i+1, 1) > final_positions(i+2,1) || ...
@@ -200,6 +206,7 @@ for j = 1:length(candidateTs)
         end
     end
 end
+hold on; plot(bouncePoint(:,1), bouncePoint(:,2), 'w*');
 
 
 % search for the strike
@@ -254,10 +261,10 @@ ball_hsv = rgb2hsv([Rave/255,Gave/255, Bave/255]);
 h = ball_hsv(:,1)*360;
 
 
-FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 70/100];
+FIRST_PASS_HSV_MIN = [ball_hsv(:,1) - first_threshold/360, 45/100, 65/100];
 FIRST_PASS_HSV_MAX = [ball_hsv(:,1) + first_threshold/360, 1, 1];
 % may be add a variable in the saturation as well
-SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 70/100];
+SECOND_PASS_HSV_MIN = [ball_hsv(:,1) - second_threshold/360, 45/100, 65/100];
 SECOND_PASS_HSV_MAX = [ball_hsv(:,1) + second_threshold/360, 1, 1];
 
 % handle edges
