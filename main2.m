@@ -1,37 +1,43 @@
-clc;
-clear;
-close all;
-fontSize = 20;
-
-MAX_ITERATIONS = 3;
-BALL_SIZE = 22; % pixels of the ball 
-% just for now.. keep the ballcolor
-ballColor = 'o';
-first_threshold = 3; second_threshold = 8;
-
-%firstPosition = 'Video/5-m-60fps.mp4';
 firstPosition = 'Video/5-m-120fps.mp4';
-%secondPosition = 'Video/5-r-60fps.mp4';
 secondPosition = 'Video/5-r-120fps.mp4';
-%videoName = 'Video/1-m-30fps.mp4';
+
+v1 = VideoReader(firstPosition, 'CurrentTime', 1.5);
+v2 = VideoReader(secondPosition, 'CurrentTime', 2);
 
 
-% prompt = 'Frames to be skipped: ';
-% skips = str2double(input(prompt, 's'));
-% if isnan(skips) || fix(skips) ~= skips
-%   disp('Please enter an integer');
-%   return;
-% end
+camera = cb_cab_r(); %Getting the camera matrice 
 
-% calc intrinsics and extrinsics 
-intrinsics = cb_cab_r(); %Hero3_120fps();
+
+view1 = readFrame(v1);
+view2 = readFrame(v2);
+
+[~, corners1] = table_detection(view1 ,1);
+[~, corners2] = table_detection(view2 ,1);
+
+% Need to reorder the points to match the real table coordinates
+cornersr1 = [
+    corners1(find(corners1(:,2) == max(corners1(:,2))),:);
+    corners1(find(corners1(:,1) == min(corners1(:,1))),:);
+    corners1(find(corners1(:,1) == max(corners1(:,1))),:);
+    corners1(find(corners1(:,2) == min(corners1(:,2))),:);
+];
+
+cornersr2 = [
+    corners2(find(corners2(:,1) == min(corners2(:,1))),:);
+    corners2(find(corners2(:,2) == min(corners2(:,2))),:);
+    corners2(find(corners2(:,2) == max(corners2(:,2))),:);
+    corners2(find(corners2(:,1) == max(corners2(:,1))),:);
+];
+
+
+[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsicsTemp(view1, camera, cornersr1);
+[paramsFirstCam, rotationMatrixSecondtCam, translationVectorSecondCamn] = calcExtrinsicsTemp(view2, camera, cornersr2);
+clear v1, v2;
+
+
 vFirst = VideoReader(firstPosition, 'CurrentTime', 0.3);
 vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
-frameFirstCam = readFrame(vFirst);
-frameSecondCam = readFrame(vSecond);
-[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsics(frameFirstCam, intrinsics);      
-[paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam] = calcExtrinsics(frameSecondCam, intrinsics);
-clear vFirst vSecond;
+
 
 % track ball
 [PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(intrinsics, firstPosition, ... 
@@ -105,4 +111,5 @@ intrinsics = cameraIntrinsics(focalLength, principalPoint, imageSize, 'RadialDis
 %figure; imshowpair(frame,j,'montage');
 
 end
+
 
