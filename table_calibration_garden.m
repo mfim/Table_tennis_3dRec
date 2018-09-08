@@ -7,9 +7,9 @@ WIDTH = max(size(I));
 
 K = rgb2gray(I);
 BW = edge(K,'Sobel');
-[H,T,R] = hough(BW,'RhoResolution',0.5,'ThetaResolution',0.5);
-P  = houghpeaks(H,30,'threshold',ceil(0.2*max(H(:))));
-lines = houghlines(BW,T,R,P,'FillGap',300,'MinLength', 150);
+[H,T,R] = hough(BW,'RhoResolution',0.6,'ThetaResolution',0.6);
+P  = houghpeaks(H,20,'threshold',ceil(0.2*max(H(:))));
+lines = houghlines(BW,T,R,P,'FillGap',300,'MinLength', 100);
 
 figure, imshow(I), hold on;
 
