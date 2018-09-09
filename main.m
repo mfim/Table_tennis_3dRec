@@ -24,19 +24,21 @@ secondPosition = 'Video/5-r-120fps.mp4';
 % end
 
 % calc intrinsics and extrinsics 
-intrinsics = cb_cab_r(); %Hero3_120fps();
+camera1 = cb_cab_r(121); %Getting the camera matrice given the fps 
+camera2 = cb_cab_r(120);
+
 vFirst = VideoReader(firstPosition, 'CurrentTime', 0.3);
 vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
 frameFirstCam = readFrame(vFirst);
 frameSecondCam = readFrame(vSecond);
-[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsics(frameFirstCam, intrinsics);      
-[paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam] = calcExtrinsics(frameSecondCam, intrinsics);
+[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsics(frameFirstCam, camera1);      
+[paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam] = calcExtrinsics(frameSecondCam, camera2);
 clear vFirst vSecond;
 
 % track ball
-[PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(intrinsics, firstPosition, ... 
+[PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(camera1, firstPosition, ... 
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 30);
-[PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(intrinsics, secondPosition,...
+[PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(camera2, secondPosition,...
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 0);
 
 offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam);
@@ -51,10 +53,10 @@ else
 end
 
 % Handle the end 
-if(CurveFirstCam(length(CurveFirstCam(:,1)) ,3) < CurveSecondCam(length(CurveFirstCam(:,1)),3))
+if(CurveFirstCam(length(CurveFirstCam(:,1)) ,3) < CurveSecondCam(length(CurveSecondCam(:,1)),3))
     CurveSecondCam = CurveSecondCam(CurveSecondCam(:,3) < CurveFirstCam(length(CurveFirstCam(:,1)),3), :);
 else
-    CurveFirstCam = CurveFirstCam(CurveFirstCam(:,3) < CurveSecondCam(length(CurveFirstCam(:,1)),3),:);
+    CurveFirstCam = CurveFirstCam(CurveFirstCam(:,3) < CurveSecondCam(length(CurveSecondCam(:,1)),3),:);
 end
 
 % estimate same points
@@ -72,8 +74,8 @@ function plotTrajectory(Trajectory)
 figure;
 
 curve = animatedline('lineWidth', 2);
-set(gca, 'XLim', [-50 280], 'YLim', [-80 280], 'ZLim', [-50 100]);
-view(43, 24);
+set(gca, 'XLim', [-500 2800], 'YLim', [-800 2800], 'ZLim', [-500 1000]);
+view(430, 240);
 plotTable(min(abs(Trajectory(:,3))));
 grid on;
 hold on; 

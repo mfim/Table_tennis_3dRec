@@ -1,7 +1,7 @@
 function [cameraParameters, rotationMatrix, translationVector] = calcExtrinsics(frame, intrinsics)
 
 % official table dimension in cm
-worldPoints = [0, 0; 152.5, 0; 0, 274; 152.5, 274];
+worldPoints = [0, 0; 1525, 0; 0, 2740; 1525, 2740];
 
 % rectify image
 j = undistortImage(frame, intrinsics, 'OutputView', 'full');
@@ -24,6 +24,7 @@ cameraParameters = cameraMatrix(intrinsics, rotationMatrix, translationVector);
 
 figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 20);
 hold on;
+grid on;    
 pcshow([worldPoints, zeros(size(worldPoints, 1),1)], ...
     'VerticalAxisDir','down','MarkerSize',40);
 
