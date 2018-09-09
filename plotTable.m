@@ -1,6 +1,6 @@
 function plotTable(minZ)
- plotTableAux( [1525 2740 6],[0 0 minZ-6], .9, [0 0 1]);
- plotTableNet( [1525 4 8], [0 1370-4 minZ], 0.8, [1 1 1]);
+ plotTableAux( [1525 2740 60],[0 0 minZ-60], .9, [0 0 1]);
+ plotTableNet( [1525 40 80], [0 1370-40 minZ], 0.8, [1 1 1]);
 end
 
 function plotTableAux(varargin)

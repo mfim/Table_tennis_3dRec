@@ -11,13 +11,13 @@ ballColor = 'o';
 first_threshold = 3; second_threshold = 8;
 
 % File name definition 
-firstPosition = 'Video/5-m-120fps-c.mp4';
-secondPosition = 'Video/5-r-120fps-c.mp4';
+firstPosition = 'Video/5-m-120fps.mp4';
+secondPosition = 'Video/5-r-120fps.mp4';
 
 
 % 
-v1 = VideoReader(firstPosition, 'CurrentTime', 0.5); %1.5 for 120-m 3.8 for 120-r
-v2 = VideoReader(secondPosition, 'CurrentTime', 1); %0.5 for 60-m-c 1 for 60-r-c
+v1 = VideoReader(firstPosition, 'CurrentTime', 0.3); %1.5 for 120-m 3.8 for 120-r
+v2 = VideoReader(secondPosition, 'CurrentTime', 0.8); %0.5 for 60-m-c 1 for 60-r-c
                                                     %3 for 60-m and 3 for
                                                     %60-r
 % 
