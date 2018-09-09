@@ -80,7 +80,7 @@ function plotTableNet(varargin)
 
 % Default input arguments
 inArgs = { ...
-  [1525 4 10] , ... % Default edge sizes (x,y and z)
+  [1525 40 100] , ... % Default edge sizes (x,y and z)
   [0 1365  0] , ... % Default coordinates of the origin point of the cube
   .8          , ... % Default alpha value for the cube's faces
   [1 1 1]       ... % Default Color for the cube
