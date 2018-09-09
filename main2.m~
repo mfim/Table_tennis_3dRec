@@ -21,8 +21,8 @@ v2 = VideoReader(secondPosition, 'CurrentTime', 1); %0.5 for 60-m-c 1 for 60-r-c
                                                     %3 for 60-m and 3 for
                                                     %60-r
 % 
-camera1 = cb_cab_r(121); %Getting the camera matrice given the fps 
-camera2 = cb_cab_r(120);
+camera1 = cb_cab_r(120); %Getting the camera matrice given the fps 
+camera2 = cb_cab_r(121);
 
 % Get the frame to detect the table on 
 view1 = readFrame(v1);
@@ -51,8 +51,8 @@ cornersr2 = [
 ];
 
 
-[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsicsTemp(view1, camera1, cornersr1);
-[paramsSecondCam, rotationMatrixSecondtCam, translationVectorSecondCamn] = calcExtrinsicsTemp(view2, camera2, cornersr2);
+[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsicsTemp(view1, camera, cornersr1);
+[paramsSecondCam, rotationMatrixSecondtCam, translationVectorSecondCamn] = calcExtrinsicsTemp(view2, camera, cornersr2);
 clear v1, v2;
 
 
@@ -61,9 +61,9 @@ vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
 
 
 % track ball
-[PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(camera1, firstPosition, ... 
+[PositionsFirstCam, CurveFirstCam, BounceTsFirstCam, BounceCoordFirstCam, StrikeTsFirstCam, StrikeCoordFirstCam] = ballTracking(camera, firstPosition, ... 
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 30);
-[PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(camera2, secondPosition,...
+[PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(camera, secondPosition,...
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 0);
 
 offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam);

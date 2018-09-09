@@ -1,6 +1,6 @@
 function plotTable(minZ)
- plotTableAux( [152.5 274 6],[0 0 minZ-6], .9, [0 0 1]);
- plotTableNet( [152.5 4 8], [0 137-4 minZ], 0.8, [1 1 1]);
+ plotTableAux( [1525 2740 6],[0 0 minZ-6], .9, [0 0 1]);
+ plotTableNet( [1525 4 8], [0 1370-4 minZ], 0.8, [1 1 1]);
 end
 
 function plotTableAux(varargin)
@@ -22,7 +22,7 @@ function plotTableAux(varargin)
 
 % Default input arguments
 inArgs = { ...
-  [152.5 273 6] , ... % Default edge sizes (x,y and z)
+  [1525 2730 6] , ... % Default edge sizes (x,y and z)
   [0 0  -6] , ... % Default coordinates of the origin point of the cube
   .9          , ... % Default alpha value for the cube's faces
   [0 0 1]       ... % Default Color for the cube
@@ -80,8 +80,8 @@ function plotTableNet(varargin)
 
 % Default input arguments
 inArgs = { ...
-  [152.5 4 10] , ... % Default edge sizes (x,y and z)
-  [0 136.5  0] , ... % Default coordinates of the origin point of the cube
+  [1525 4 10] , ... % Default edge sizes (x,y and z)
+  [0 1365  0] , ... % Default coordinates of the origin point of the cube
   .8          , ... % Default alpha value for the cube's faces
   [1 1 1]       ... % Default Color for the cube
   };

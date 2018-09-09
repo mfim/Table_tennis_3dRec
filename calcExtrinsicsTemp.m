@@ -1,6 +1,6 @@
 function [cameraParameters, rotationMatrix, translationVector] = calcExtrinsicsTemp(frame, intrinsics, imagePoints)
  % official table dimension in cm
-worldPoints = [0, 0; 152.5, 0; 0, 274.0; 152.5, 274.0];
+worldPoints = [0, 0; 1525, 0; 0, 2740; 1525, 2740];
  % rectify image
 %j = undistortImage(frame, intrinsics, 'OutputView', 'full');
 %figure; imshow(j, []);
@@ -14,8 +14,8 @@ cameraParameters = cameraMatrix(intrinsics, rotationMatrix, translationVector);
  %tablePlane = BounceCoordSecondCam/paramsSecondCam;
  % plot camera position 
 [orientation, location] = extrinsicsToCameraPose(rotationMatrix, translationVector);
- figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 20);
+ figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 150);
 hold on;
 pcshow([worldPoints, zeros(size(worldPoints, 1),1)], ...
-    'VerticalAxisDir','down','MarkerSize',40);
+    'VerticalAxisDir','down','MarkerSize',400);
  end 
