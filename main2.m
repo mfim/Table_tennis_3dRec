@@ -53,6 +53,8 @@ cornersr2 = [
 
 [paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsicsTemp(view1, camera1, cornersr1);
 [paramsSecondCam, rotationMatrixSecondtCam, translationVectorSecondCamn] = calcExtrinsicsTemp(view2, camera2, cornersr2);
+%[paramsFirstCam, rotationMatrixFirstCam, translationVectorFirstCam] = calcExtrinsics(view1, camera1);      
+%[paramsSecondCam, rotationMatrixSecondCam, translationVectorSecondCam] = calcExtrinsics(view2, camera2);
 clear v1, v2;
 
 
@@ -66,7 +68,7 @@ vSecond = VideoReader(secondPosition, 'CurrentTime', 0.3);
 [PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(camera2, secondPosition,...
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 0);
 
-offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam);
+offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam, paramsFirstCam, paramsSecondCam);
 
 CurveSecondCam(:,3) = CurveSecondCam(:,3) - (offset);
 

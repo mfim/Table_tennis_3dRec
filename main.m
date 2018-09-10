@@ -41,7 +41,7 @@ clear vFirst vSecond;
 [PositionsSecondCam, CurveSecondCam, BounceTsSecondCam, BounceCoordSecondCam, StrikeTsSecondCam, StrikeCoordSecondCam] = ballTracking(camera2, secondPosition,...
      MAX_ITERATIONS, BALL_SIZE, ballColor, first_threshold, second_threshold, 0);
 
-offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam);
+offset = syncCam(BounceCoordFirstCam, BounceCoordSecondCam, BounceTsFirstCam, BounceTsSecondCam, paramsFirstCam, paramsSecondCam);
 
 CurveSecondCam(:,3) = CurveSecondCam(:,3) - (offset);
 

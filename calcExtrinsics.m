@@ -22,7 +22,7 @@ cameraParameters = cameraMatrix(intrinsics, rotationMatrix, translationVector);
 % plot camera position 
 [orientation, location] = extrinsicsToCameraPose(rotationMatrix, translationVector);
 
-figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 20);
+figure; plotCamera('Location', location, 'Orientation', orientation, 'Size', 200);
 hold on;
 grid on;    
 pcshow([worldPoints, zeros(size(worldPoints, 1),1)], ...
