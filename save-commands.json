@@ -1,5 +1,0 @@
-{
-  "commands": [
-    "Report/*.md : pandoc -o {relPath}{name}.pdf {relPath}{filename} --latex-engine=xelatex "
-  ]
-}
