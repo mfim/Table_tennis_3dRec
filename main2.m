@@ -101,9 +101,9 @@ function plotTrajectory(Trajectory)
 figure;
 
 curve = animatedline('lineWidth', 2);
-set(gca, 'XLim', [-500 2800], 'YLim', [-80 2800], 'ZLim', [-50 1000]);
+set(gca, 'XLim', [-500 2800], 'YLim', [-300 3200], 'ZLim', [-400 1000]);
 view(430, 240);
-plotTable(min(abs(Trajectory(:,3))));
+plotTable(-max(Trajectory(:,3)));
 grid on;
 hold on; 
 
